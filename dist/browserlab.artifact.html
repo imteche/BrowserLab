@@ -180,10 +180,45 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   .col { border-right: none; border-bottom: 1px solid var(--line); }
   .page { padding: 16px; }
 }
+
+/* ---------- live wall ---------- */
+#page-live { max-width: none; }
+.live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); margin-right: 7px; vertical-align: 1px; }
+.live-dot.on { background: var(--bad); box-shadow: 0 0 0 0 rgba(229, 72, 77, .6); animation: pulse 1.6s ease-out infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 72, 77, .55); } 70% { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); } }
+.wall-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.wall-head .lede { margin-bottom: 10px; }
+.wall-ctl { display: flex; gap: 8px; }
+.wall-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 11.5px var(--mono); color: var(--dim); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 8px 0; margin-bottom: 14px; }
+.wall-stats b { font-size: 15px; font-weight: 500; color: var(--text); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); grid-auto-flow: dense; gap: 12px; }
+.tile { background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; animation: boot .5s cubic-bezier(.2, .7, .2, 1) both; animation-delay: calc(var(--i) * 60ms); transition: border-color .3s; }
+@media (min-width: 1100px) { .tile.wide { grid-column: span 2; } }
+.tile:hover { border-color: var(--line-2); }
+.tile.holding { border-color: rgba(242, 179, 61, .45); }
+@keyframes boot { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.tile header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 8px 10px 6px; }
+.tile header > div:first-child { min-width: 0; }
+.t-scene { font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin-bottom: 4px; }
+.t-method { max-width: 100%; font-size: 12px; padding: 2px 4px; }
+.t-cv { display: block; width: 100%; background: #07090b; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.t-gap { font: 11px var(--mono); color: var(--dim); padding: 5px 10px 0; min-height: 20px; overflow-wrap: anywhere; }
+.t-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 6px 10px; }
+.t-m { display: grid; grid-template-columns: 1fr auto; align-items: baseline; min-width: 0; }
+.t-ml { font: 10.5px var(--mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-mv { font: 500 12px var(--mono); font-variant-numeric: tabular-nums; }
+.spark { grid-column: 1 / 3; width: 100%; height: 22px; display: block; }
+.tile footer { display: flex; align-items: center; gap: 10px; padding: 6px 10px 8px; border-top: 1px solid var(--line); font: 11px var(--mono); color: var(--dim); margin-top: auto; }
+.tile footer .t-clock { color: var(--text); font-variant-numeric: tabular-nums; }
+.tile footer .btn { margin-left: auto; font-size: 11px; padding: 3px 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .tile, .live-dot.on { animation: none; }
+}
 </style>
 <header class="bar">
   <div class="mark">Browser<b>Lab</b></div>
   <nav class="tabs-top" role="tablist">
+    <button role="tab" data-page="live" aria-selected="false"><span class="live-dot" id="live-dot"></span>Live</button>
     <button role="tab" data-page="lab" aria-selected="true">Lab</button>
     <button role="tab" data-page="matrix" aria-selected="false">Verification matrix</button>
     <button role="tab" data-page="graph" aria-selected="false">Build graph</button>
@@ -247,6 +282,17 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 </div>
 </section>
 
+<section class="page" id="page-live">
+  <div class="wall-head">
+    <div>
+      <h1>Live runs</h1>
+      <p class="lede">Every reference scene running in your browser right now, each with its best-verified method. Status chips come from independent reviewers. Swap the method on any tile, or open it in the lab for equations, code and the full gap report.</p>
+    </div>
+    <div class="wall-ctl"><button class="btn primary" id="wall-run" aria-pressed="true">Pause all</button><button class="btn" id="wall-restart">Restart all</button></div>
+  </div>
+  <div class="wall-stats" id="wall-stats"></div>
+  <div class="wall" id="wall"></div>
+</section>
 <section class="page" id="page-matrix"></section>
 <section class="page" id="page-graph"></section>
 <section class="page" id="page-sources"></section>
@@ -2346,10 +2392,13 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    * boundary fluxes, which are exactly F(left state)-F(right state) = (0, pL-pR, 0) per unit time. */
   LAB.registerReference({
     id: 'sod-totals', scene: 'sod',
-    quantity: 'Domain integrals on [0,1]: mass(t)=0.5625, energy(t)=2.75 constant; momentum(t)=0.9*t (net boundary pressure force pL-pR)',
+    quantity: 'Domain integrals on [0,1]: mass(t)=0.5625, energy(t)=1.375 constant; momentum(t)=0.9*t (net boundary pressure force pL-pR)',
     source: 'sod1978', location: 'follows from the conservation form and the initial data (mass 0.5*1+0.5*0.125; E=p/(gamma-1): 0.5*2.5+0.5*0.25)',
     kind: 'function',
-    fn: function (x, t) { return { mass: 0.5625, momentum: 0.9 * t, energy: 2.75 }; },
+    fn: function (x, t) { return { mass: 0.5625, momentum: 0.9 * t, energy: 1.375 }; },
+    /* ERRATUM (orchestrator, 2026-10-13): originally 2.75, a factor-2 slip in 0.5*2.5+0.5*0.25 = 1.375.
+     * Caught independently by reviewers of lax-friedrichs@sod-t02 and hllc-godunov@sod-t02; confirmed by hand. */
+    erratum: 'energy corrected from 2.75 to 1.375 (arithmetic slip caught by two independent reviewers)',
     tolerance: { metric: 'rel', value: 1e-12, rationale: 'Conservative finite-volume schemes with transmissive BCs conserve to round-off; momentum grows by (pL-pR)*t = 0.9t ' +
       'while the waves remain inside [0,1] (head at 0.263, shock at 0.850 at t=0.2). Note: with N even, the diaphragm must lie on a cell face for mass to be exactly 0.5625.' }
   });
@@ -7654,6 +7703,159 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
+<script>/* verification/results/muscl-hancock@sod-t02.js */
+/* Verification record: muscl-hancock @ sod-t02. Reviewer: reviewer-muscl-hancock-sod-t02-r1 (not the builder).
+ * Numbers from verification/checks/muscl-hancock@sod-t02.check.js; report in
+ * verification/reports/muscl-hancock@sod-t02.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'muscl-hancock@sod-t02',
+    method: 'muscl-hancock', scene: 'sod', experiment: 'sod-t02',
+    status: 'flagged',
+    claim: 'MUSCL-Hancock (minmod, conserved-variable slopes, HLLC/Davis, CFL 0.9) on Sod at t = 0.2 is within the second-order (engineering) L1 density bands at N = 100/200/400 ' +
+      '(6.581e-3 / 3.581e-3 / 1.997e-3 vs 0.0095 / 0.0052 / 0.0029). Overall L1 orders are 0.77-0.88 (rho) up to N = 6400. Mass, momentum and energy are conserved to <= 4.7e-15. ' +
+      'The solution stays positive, star plateaus are within 0.02 %, and all four wave positions are within 0.006 at N = 200. On genuinely smooth data the same kernel converges at second order (1.9 minmod, 2.0-2.1 van Leer). ' +
+      'The record is flagged on two reviewer criteria that were fixed before the runs. (1) The total-variation excess and the u overshoot exceed 1 %: there is a single overshoot of u at the rarefaction tail, 1.31 % of u* at N = 100, 0.78 % at N = 400 and 0.46 % at N = 1600; TV(u) excess is 1.55 % at N = 100 and 1.14 % at N = 400. ' +
+      '(2) Inside the Sod fan, the L1 order away from waves is only 1.0, not ~2.',
+    conditions: {
+      t: 0.2, gamma: 1.4, x0: 0.5, data: '(1,0,1)|(0.125,0,0.1)', CFL: 0.9, limiter: 'minmod (default); van Leer, primitive vars, Einfeldt as info',
+      vars: 'conserved (default)', speeds: 'Davis (default)', N: [100, 200, 400, 800, 1600, 3200, 6400], boundary: 'transmissive',
+      landing: 'last step clipped onto t = 0.2 (all runs land exactly)', L1: 'sum |q_cell - q_exact(x_centre)| dx',
+      smooth_window: 'cells farther than 0.04 from head, tail, contact and shock',
+      smooth_data_tests: 'entropy wave and isentropic simple wave, N = 50..1600, through an in-memory copy of the method with one IC hook line appended (evolution code byte-identical; file on disk unchanged)',
+      plateau_read: 'cell nearest middle of exact plateau, N = 400, 1 % band',
+      wave_locators: 'shock: p crossing (p*+pR)/2; contact: rho crossing (rho*L+rho*R)/2; rarefaction head/tail: LSQ line through u in fan interior intersected with u=0 / u=u*',
+      oscillation_criterion: 'reviewer (a priori): TV(q)/TV_exact - 1 <= 1 % and global over/undershoot <= 1 % of the jump, for rho, u, p at N = 100..1600',
+      check: 'verification/checks/muscl-hancock@sod-t02.check.js (runtime ~6 s)'
+    },
+    reference: ['sod-exact-profile', 'sod-totals', 'sod-pstar', 'sod-ustar', 'sod-rhostarL', 'sod-rhostarR',
+      'sod-x-shock', 'sod-x-contact', 'sod-x-rarefaction-head', 'sod-x-rarefaction-tail', 'sod-modified-exact-profile'],
+    gaps: [
+      { quantity: 'L1(rho) N=100', value: 6.5806e-3, tolerance: 0.0095, unit: 'L1 (engineering band)', pass: true },
+      { quantity: 'L1(rho) N=200', value: 3.5807e-3, tolerance: 0.0052, unit: 'L1 (engineering band)', pass: true },
+      { quantity: 'L1(rho) N=400', value: 1.9973e-3, tolerance: 0.0029, unit: 'L1 (engineering band)', pass: true },
+      { quantity: 'min overall L1(rho) order N=100..6400 (reviewer window [0.6, 1.2])', value: 0.765, tolerance: 0.6, unit: 'order (lower bound)', pass: true },
+      { quantity: 'Sod smooth-window L1(rho) order, finest two pairs (reviewer >= 1.7)', value: 0.991, tolerance: 1.7, unit: 'order (lower bound)', pass: false },
+      { quantity: 'smooth-data L1(rho) order, worst over finest two pairs of entropy/simple wave x minmod/van Leer (reviewer >= 1.7)', value: 1.83, tolerance: 1.7, unit: 'order (lower bound)', pass: true },
+      { quantity: 'mass drift, max over all runs (vs 0.5625)', value: 5.9e-16, tolerance: 1e-12, unit: 'rel', pass: true },
+      { quantity: 'momentum vs 0.9 t = 0.18, max over all runs', value: 2.0e-15, tolerance: 1e-12, unit: 'rel', pass: true },
+      { quantity: 'energy drift, max over all runs (vs derived 1.375; reference states 2.75 in error)', value: 4.7e-15, tolerance: 1e-12, unit: 'rel', pass: true },
+      { quantity: 'rho*_L plateau N=400', value: 1.7e-4, tolerance: 0.01, unit: 'rel', pass: true },
+      { quantity: 'rho*_R plateau N=400', value: 2.4e-5, tolerance: 0.01, unit: 'rel', pass: true },
+      { quantity: 'p* plateau N=400 (worse of two reads)', value: 1.2e-5, tolerance: 0.01, unit: 'rel', pass: true },
+      { quantity: 'u* plateau N=400 (worse of two reads)', value: 4.1e-5, tolerance: 0.01, unit: 'rel', pass: true },
+      { quantity: 'shock position N=200', value: 1.8e-4, tolerance: 0.01, unit: 'abs x', pass: true },
+      { quantity: 'contact position N=200', value: 1.4e-3, tolerance: 0.01, unit: 'abs x', pass: true },
+      { quantity: 'rarefaction head position N=200', value: 2.5e-3, tolerance: 0.01, unit: 'abs x', pass: true },
+      { quantity: 'rarefaction tail position N=200', value: 5.8e-3, tolerance: 0.01, unit: 'abs x', pass: true },
+      { quantity: 'u overshoot above u* N=100 (reviewer <= 1 %)', value: 1.31e-2, tolerance: 0.01, unit: 'rel to u*', pass: false },
+      { quantity: 'u overshoot above u* N=400', value: 7.8e-3, tolerance: 0.01, unit: 'rel to u*', pass: true },
+      { quantity: 'TV(rho) excess N=100 (reviewer <= 1 %)', value: 1.38e-2, tolerance: 0.01, unit: 'rel to exact TV 0.875', pass: false },
+      { quantity: 'TV(u) excess N=400 (reviewer <= 1 %)', value: 1.14e-2, tolerance: 0.01, unit: 'rel to exact TV 2u*', pass: false },
+      { quantity: 'TV(u) excess N=1600', value: 8.4e-3, tolerance: 0.01, unit: 'rel to exact TV 2u*', pass: true }
+    ],
+    checks: [
+      { name: 'mass/momentum/energy conservation', status: 'pass',
+        detail: 'all 7 runs (N=100..6400): rel drift <= 5.9e-16 (mass), 2.0e-15 (momentum vs 0.9t), 4.7e-15 (energy vs 1.375). ' +
+          'sod-totals gives energy 2.75, an arithmetic error (0.5*2.5 + 0.5*0.25 = 1.375), already reported by the hllc-godunov review. Compared with 2.75 the error would read 0.5 rel.' },
+      { name: 'stability / positivity / CFL', status: 'pass',
+        detail: 'No NaN or divergence. Over all steps min rho = 0.125 and min p = 0.1. Realized CFL is 0.9000 (stated bound C <= 1). The positivity fallback never fired (0 cells). All runs land exactly on t = 0.2. ' +
+          'Info: C = 1.0 at N = 400 is also stable and positive (L1 rho 2.04e-3).' },
+      { name: 'quantitative: L1 and overall convergence', status: 'pass',
+        detail: 'L1 rho 6.581e-3, 3.581e-3, 1.997e-3, 1.155e-3, 6.552e-4, 3.855e-4, 2.213e-4 for N = 100..6400. Orders: rho 0.77-0.88, u 0.65-1.37 (non-monotone), p 0.94-1.07. ' +
+          'N=100/200/400 match the researcher scratch calibration (6.581e-3/3.581e-3/1.997e-3) to 4 digits. The bands are unpublished engineering bands (~1.4x scratch). L1 rho is 0.38/0.33/0.28 of first-order Godunov-HLLC at N = 200/400/1600.' },
+      { name: 'second order in smooth regions: smooth-data tests', status: 'pass',
+        detail: 'Same evolution kernel, smooth initial data via an in-memory IC hook. Entropy wave L1(rho) orders: minmod 1.51, 1.57, 1.59, 1.83, 1.89; van Leer 1.73, 2.04, 2.04, 2.10, 2.11 (N = 50..1600). u and p stay constant to 1e-14. ' +
+          'Isentropic simple wave: minmod 1.43, 1.78, 1.85, 1.93, 1.91; van Leer 1.86, 1.93, 2.05, 2.04, 2.00.' },
+      { name: 'second order in smooth regions: Sod windows (0.04 from waves)', status: 'fail',
+        detail: 'Smooth-window L1(rho) orders are 1.29, 1.06, 0.99, 1.00, 1.01, 0.99. The fan interior dominates; its order is 1.00 for every window (0.04 and 0.08), against 0.8 for first-order Godunov. ' +
+          'Because the same kernel is second order on smooth data, the reviewer attributes this to O(dx) start-up error from the centred fan, which spreads into the self-similar fan. That attribution is not proven. Under the a priori >= 1.7 criterion this check fails.' },
+      { name: 'oscillations / TV increase', status: 'fail',
+        detail: 'There is no oscillation train. u has one overshoot just right of the rarefaction tail: +1.31 % of u* at N=100 (x=0.525), +0.78 % at N=400 and +0.46 % at N=1600, shrinking roughly as N^-0.37. Post-shock ripples are < 5e-4 rel. ' +
+          'TV excess (rho/u/p): 1.38/1.55/1.31 % at N=100, 1.10/1.38/1.10 % at N=200, 0.89/1.14/0.96 % at N=400, 0.70/1.02/0.76 % at N=800 and 0.63/0.84/0.70 % at N=1600. rho and p never leave the exact range. ' +
+          'The reviewer limit of 1 % is exceeded at N <= 200 (rho, p) and N <= 800 (u). Variants: Einfeldt speeds give u overshoot 0.95 % and TV(rho) 1.13 % at N=100; van Leer gives TV(rho) 2.5 %; primitive limiting gives 1.8 %.' },
+      { name: 'quantitative: star plateaus (N=400, 1%)', status: 'pass', detail: 'rho*L 0.426247, rho*R 0.265564, p* 0.303130 / 0.303126, u* 0.927458 / 0.927488 (all <= 1.7e-4 rel)' },
+      { name: 'quantitative: wave positions (N=200, 0.01)', status: 'pass',
+        detail: 'shock 0.85061 (err 1.8e-4), contact 0.68409 (1.4e-3), head 0.26081 (2.5e-3), tail 0.49175 (5.8e-3). The tail is robust across LSQ windows (5.6-6.0e-3). The max-curvature locator gives 0.0116 (info; it is noisy at the cell scale). ' +
+          'At N=1600 the errors are <= 7.4e-4. Fitted fan slope at N = 200/400/1600: 4.02/4.09/4.15, exact 4.17.' },
+      { name: 'structural: limiter=2 reproduces first-order hllc-godunov', status: 'pass', detail: 'max |diff| in rho,u,p = 1.4e-15 (N=100), 7.3e-15 (N=400)' },
+      { name: 'contact resolution vs first order', status: 'pass', detail: 'cells in 10-90% of contact jump: MUSCL 6/8/13 vs Godunov 14/18/36 at N=200/400/1600; shock 1-2 cells for both' },
+      { name: 'info: modified Sod (sonic rarefaction)', status: 'pass', detail: 'L1 rho 6.800e-3 (N=100, band 0.0095) and 2.398e-3 (N=400, band 0.0034). This belongs to a different experiment and is recorded as info only.' }
+    ],
+    missing: [
+      'L1 bands in sod-exact-profile are BrowserLab engineering bands (~1.4x researcher scratch errors), not published values (research/hyp.md: no open L1 tables found). The L1 pass shows agreement with the researcher\'s own scratch MUSCL-Hancock, not with literature numbers.',
+      'No tolerance exists for L1 in u and p (the experiment quantity names them). They are reported with orders only.',
+      'The 1 % TV/overshoot limit, the >= 1.7 smooth-order limit and the [0.6, 1.2] overall-order window are reviewer criteria fixed before the runs from the task protocol hints ("smooth ~2", "overall ~0.7-1", "no oscillations beyond small overshoot"). They are not published tolerances. The reviewer did not relax them after seeing the results.',
+      'toro2009 (Sec. 14.4 MUSCL-Hancock, CFL bound, Davis speeds), toro1994hllc, vanleer1979, einfeldt1988, ader2023 and sod1978 are verified:false (secondary copies or snippets; originals not read). The method\'s half-step formula and the van Leer limiter rest on snippets and recollection. ' +
+        'The exact solver and star values rest on the open zingale-cha notes and the open sodshock2015 code (verified:true), so the reference values themselves are open.',
+      'The attribution of the order-1 error in the Sod fan interior to start-up error from the centred fan is reviewer reasoning, not a cited result.',
+      'Smooth-data tests run through an in-memory copy of the method with one appended initial-condition hook line. They are not part of the published sod-t02 protocol.',
+      'REFERENCE DEFECT (already reported): sod-totals states energy(t) = 2.75, but the correct value is 1.375. Not yet fixed in references/sod.js.'
+    ],
+    reviewer: 'reviewer-muscl-hancock-sod-t02-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'flagged',
+      reason: 'All reference tolerances pass: L1 rho within the second-order bands, plateaus <0.02 %, waves <0.006 at N=200, conservation <5e-15, positivity, and second order on smooth data. Flagged on two reviewer criteria fixed a priori. (1) TV excess / u overshoot above 1 %: a single overshoot at the rarefaction tail, 1.31 % of u* at N=100, TV(u) excess 1.14 % at N=400. (2) L1 order inside the Sod fan is 1.0, not ~2. Both look inherent to minmod with conserved-variable slopes and to the centred-fan start-up; no implementation defect was found.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/psi-omega-fd@cavity-re100.js */
+/* Verification record: psi-omega-fd @ cavity-re100. Reviewer: reviewer-psi-omega-fd-cavity-re100-r1 (not the builder).
+ * Numbers from verification/checks/psi-omega-fd@cavity-re100.check.js; report in
+ * verification/reports/psi-omega-fd@cavity-re100.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'psi-omega-fd@cavity-re100',
+    method: 'psi-omega-fd', scene: 'cavity', experiment: 'cavity-re100',
+    status: 'matched',
+    claim: 'Stream-function/vorticity FD (central convection, Thom wall vorticity, multigrid Poisson) on a 129^2 grid reproduces ' +
+      'Ghia et al. (1982) at Re = 100: max |u - u_Ghia| = 0.0042 U on x = 0.5 and max |v - v_Ghia| = 0.0084 U on y = 0.5 (tol 0.02), ' +
+      'psi_min = -0.103338 (0.08% from -0.103423, tol 3%), primary-vortex centre (0.6154, 0.7378) within 0.0034 of (0.6172, 0.7344) (tol 0.02).',
+    conditions: {
+      Re: 100, N: 128, scheme: 'central', cfl: 0.8, mgCycles: 10, dt: 0.0012207, steps: 28550, t_end: 34.85,
+      convergence: 'residual (max |du|,|dv| per unit time) < 1e-9; u_vcl changed < 3.5e-7 over the last 9.8 time units',
+      grid_sequence: 'N = 32, 64, 128 (same stop criterion)',
+      check: 'verification/checks/psi-omega-fd@cavity-re100.check.js'
+    },
+    reference: ['cavity-re100-ghia-u', 'cavity-re100-ghia-v', 'cavity-re100-ghia-psimin', 'cavity-re100-ghia-center'],
+    gaps: [
+      { quantity: 'max |u - u_Ghia| on x = 0.5 (17 rows; worst at y = 0.8516)', value: 0.00420, tolerance: 0.02, unit: 'U_lid', pass: true },
+      { quantity: 'max |v - v_Ghia| on y = 0.5 (17 rows; worst at x = 0.8594)', value: 0.00844, tolerance: 0.02, unit: 'U_lid', pass: true },
+      { quantity: 'psi_min relative error vs -0.103423 (sim -0.1033377)', value: 0.000824, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'primary-vortex centre max(|dx|,|dy|) vs (0.6172, 0.7344) (sim (0.6154, 0.7378))', value: 0.00339, tolerance: 0.02, unit: 'L', pass: true }
+    ],
+    checks: [
+      { name: 'conservation (mass / kinematic consistency)', status: 'pass',
+        detail: 'max |div u| (central, interior) = 7.1e-15 (velocity from psi, exactly solenoidal); max |lap psi + omega| = 3.0e-12; ' +
+          'circulation integral of omega = -0.9921875 = -(1 - h), the exact discrete value for Thom walls with zero corners (Stokes: -1); ' +
+          'KE 0.0344363 changes by 2.6e-8 over the last 9.8 time units. No momentum/energy invariant applies to the driven viscous steady state.' },
+      { name: 'steady state reached', status: 'pass',
+        detail: 'residual 9.9e-10 at t = 34.85 (28550 steps); over the preceding 9.8 time units u_vcl changes by 3.5e-7 (<1% of the 0.02 tol) and psi_min by 5.1e-8 (5e-7 rel, <1% of the 3% tol).' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/blow-up in any run; N = 128: diffusion number 0.20 <= 0.25, CFL 0.156 <= 1, cell Peclet 0.78 <= 2 (central-scheme criterion). ' +
+          'N = 32 runs at cell Peclet 3.1 (> 2) and is still stable and wiggle-free at the probes (info only).' },
+      { name: 'quantitative vs Ghia (u, v tables; psi_min; centre)', status: 'pass',
+        detail: 'all four gaps within reference tolerances at N = 128; also at N = 64 (u 0.0027, v 0.0059, psi 0.64%, centre 0.0032) and N = 32 (u 0.0089, v 0.0086, psi 2.9%, centre 0.0087).' },
+      { name: 'grid convergence (information)', status: 'pass',
+        detail: 'psi_min -0.100431 / -0.102762 / -0.103338 for N = 32/64/128: observed order 2.02; Richardson value -0.103526 (0.10% from Ghia). ' +
+          'Table gaps do not shrink monotonically to 0 (u 0.0027 at N=64 vs 0.0042 at N=128) because Ghia\'s own 129^2 solution carries O(h^2) error of the same size; the sign pattern at N=128 (v systematically ~0.003-0.008 larger in magnitude) is consistent with that.' }
+    ],
+    missing: [
+      'ghia1982 is registered verified:false: original paper paywalled and not read. u/v tables come from open, mutually identical transcriptions (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-cfdgasman-ghia; verified:true copies); table numbers (I, II) not checked against the original.',
+      'psi_min = -0.103423 is quoted from a single copy (copy-cfdgasman-ghia README) plus a 5-digit search snippet; vortex-centre value from a single copy (copy-sujaldave-ghia, Table V per that copy). Table numbers III/V unverified.',
+      'Ghia values are themselves a 2nd-order 129^2 solution; no higher-accuracy Re = 100 reference (Botella/Erturk tables) is registered, so agreement is with a comparable-accuracy benchmark, not with the converged continuum solution (the sim\'s Richardson psi_min -0.103526 differs from Ghia by 0.10%).',
+      'Steadiness criterion (1% of each tolerance over ~5-10 time units) and the circulation criterion |circ + 1| <= 1.01 h are reviewer-set; no source specifies them.',
+      'Only the default central scheme was verified; the first-order upwind option (scheme 1) was not run for this record.'
+    ],
+    reviewer: 'reviewer-psi-omega-fd-cavity-re100-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'N=128 steady run (residual<1e-9): u gap 0.0042, v gap 0.0084 (tol 0.02), psi_min 0.08% (tol 3%), centre 0.0034 (tol 0.02); solenoidal to 7e-15, stable within stated FTCS limits. Ghia original verified:false, values from open verified copies; recorded in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
 <script>/* verification/results/rk4@kepler-e06.js */
 /* Verification record: rk4 @ kepler-e06. Reviewer: reviewer-rk4-kepler-e06-r1 (not the builder).
  * Numbers from verification/checks/rk4@kepler-e06.check.js; report in
@@ -7924,7 +8126,7 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   }
   /* spec: {xlabel, ylabel, series:[{x,y,color,dash,points,width}], ylog, equal, xrange, yrange, bands:[{y0,y1,color}]} */
   function drawPlot(ctx, R, spec) {
-    var L = 46, B = 26, T = 8, Rr = 10, x0 = R.x + L, y0 = R.y + T, pw = R.w - L - Rr, ph = R.h - T - B;
+    var L = spec.compact ? 34 : 46, B = spec.compact ? 18 : 26, T = spec.compact ? 4 : 8, Rr = spec.compact ? 6 : 10, x0 = R.x + L, y0 = R.y + T, pw = R.w - L - Rr, ph = R.h - T - B;
     ctx.fillStyle = C.bg; ctx.fillRect(R.x, R.y, R.w, R.h);
     var xs = [], ys = [], ylog = spec.ylog;
     spec.series.forEach(function (s) { for (var i = 0; i < s.x.length; i++) { var yv = s.y[i]; if (isFinite(s.x[i]) && isFinite(yv) && (!ylog || yv > 0)) { xs.push(s.x[i]); ys.push(ylog ? Math.log10(yv) : yv); } } });
@@ -7989,35 +8191,45 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   }
 
   /* ---------------- reference overlays ---------------- */
-  function whenOk(ref) {
+  function whenOk(ref, X) {
     var w = ref.overlay && ref.overlay.when; if (!w) return true;
     for (var k in w) {
-      var have = S.params[k];
-      if (have === undefined && S.exp && S.exp.params) have = S.exp.params[k];
+      var have = X.params[k];
+      if (have === undefined && X.exp && X.exp.params) have = X.exp.params[k];
       if (have === undefined) return false;
       if (Math.abs(have - w[k]) > 1e-9 * Math.max(1, Math.abs(w[k]))) return false;
     }
     return true;
   }
-  function refsFor(plotKey) {
-    return LAB.referencesFor(S.scene).filter(function (r) { return r.overlay && r.overlay.plot === plotKey && whenOk(r); });
+  function refsFor(plotKey, X) {
+    return LAB.referencesFor(X.scene).filter(function (r) { return r.overlay && r.overlay.plot === plotKey && whenOk(r, X); });
   }
-  function refSeries(plotKey, xsSim, t) {
+  var refCache = {}, refCacheN = 0;
+  function refSeries(plotKey, xsSim, t, X) {
+    X = X || S;
+    var ck = X.scene + '|' + plotKey + '|' + (+t).toPrecision(4) + '|' + (xsSim.length ? xsSim[0] + ':' + xsSim[xsSim.length - 1] : '') + '|' + JSON.stringify(X.params);
+    if (refCache[ck]) return refCache[ck];
+    if (++refCacheN > 400) { refCache = {}; refCacheN = 0; }
+    var res = refSeriesRaw(plotKey, xsSim, t, X);
+    refCache[ck] = res;
+    return res;
+  }
+  function refSeriesRaw(plotKey, xsSim, t, X) {
     var out = [], bands = [];
-    refsFor(plotKey).forEach(function (r, idx) {
+    refsFor(plotKey, X).forEach(function (r, idx) {
       var o = r.overlay;
       try {
         if (r.kind === 'table') {
           var ix = r.columns.indexOf(o.x), iy = r.columns.indexOf(o.y);
           out.push({ label: r.label || ('ref: ' + (LAB.sources[r.source] ? shortCite(LAB.sources[r.source]) : r.source)), x: r.rows.map(function (row) { return row[ix]; }), y: r.rows.map(function (row) { return row[iy]; }), color: C.ref, points: true });
         } else if (r.kind === 'function' && (typeof r.fn === 'function' || o.eval)) {
-          var xs = [], ys = [], n = 400, lo, hi;
+          var xs = [], ys = [], n = 240, lo, hi;
           if (o.sample === 't') { lo = 0; hi = Math.max(t, 1e-6) * (o.ahead || 1.0); }
           else { lo = o.range ? o.range[0] : Math.min.apply(null, xsSim); hi = o.range ? o.range[1] : Math.max.apply(null, xsSim); }
           for (var i = 0; i <= n; i++) {
-            var xv = lo + (hi - lo) * i / n, v = o.eval ? o.eval(xv, t, S.params) : o.sample === 't' ? r.fn(xv, S.params) : r.fn(xv, t, S.params);
+            var xv = lo + (hi - lo) * i / n, v = o.eval ? o.eval(xv, t, X.params) : o.sample === 't' ? r.fn(xv, X.params) : r.fn(xv, t, X.params);
             if (o.field && v) v = v[o.field];
-            xs.push(xv); ys.push(o.transform ? o.transform(v, S) : v);
+            xs.push(xv); ys.push(o.transform ? o.transform(v, X) : v);
           }
           out.push({ label: r.label || 'exact', x: xs, y: ys, color: C.ref, dash: [5, 3], width: 1.2 });
         } else if (r.kind === 'scalar' && r.range) {
@@ -8116,20 +8328,28 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   }
 
   /* ---------------- main view ---------------- */
-  var off = document.createElement('canvas');
   function drawView() {
     var s = S.sim, cv = $('cv'); if (!s) return;
     var d; try { d = s.view(S.field); } catch (e) { showErr('view() failed: ' + e.message); return; }
     if (!d) return;
-    var wrapW = cv.parentNode.clientWidth - 24, aspect = 0.62;
-    if (d.extent) aspect = (d.extent[3] - d.extent[1]) / (d.extent[2] - d.extent[0]);
-    if (d.kind === 'profiles') aspect = 0.32 * d.panels.length;
-    if (d.kind === 'orbit') aspect = 0.62;
-    var cssH = Math.max(160, Math.min(window.innerHeight * 0.62, wrapW * aspect));
+    var wrapW = cv.parentNode.clientWidth - 24;
+    var cssH = Math.max(160, Math.min(window.innerHeight * 0.62, wrapW * viewAspect(d)));
+    renderDesc(d, cv, cssH, $('legend'), s, S, S.field);
+  }
+  function viewAspect(d) {
+    if (d.kind === 'profiles') return 0.32 * d.panels.length;
+    if (d.kind === 'orbit') return 0.62;
+    if (d.extent) return (d.extent[3] - d.extent[1]) / (d.extent[2] - d.extent[0]);
+    return 0.62;
+  }
+  var offs = {};
+  /* Draws a render descriptor into any canvas. X = {scene, params, exp} for reference overlays. */
+  function renderDesc(d, cv, cssH, leg, s, X, fieldName, compact) {
+    leg = leg || { set innerHTML(v) { /* no legend */ } };
     cv.style.height = cssH + 'px';
     var g = setupCanvas(cv, cssH), ctx = g.ctx;
+    var off = offs[cv.id || 'x'] || (offs[cv.id || 'x'] = document.createElement('canvas'));
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, g.w, g.h);
-    var leg = $('legend');
     if (d.kind === 'field') {
       if (off.width !== d.nx || off.height !== d.ny) { off.width = d.nx; off.height = d.ny; }
       var octx = off.getContext('2d'), img = octx.createImageData(d.nx, d.ny), L = CMAPS[d.cmap] || CMAPS.sequential;
@@ -8143,7 +8363,7 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
       octx.putImageData(img, 0, 0);
       var sc = Math.min(g.w / d.nx, g.h / d.ny), dw = d.nx * sc, dh = d.ny * sc;
       ctx.imageSmoothingEnabled = true; ctx.drawImage(off, (g.w - dw) / 2, (g.h - dh) / 2, dw, dh);
-      leg.innerHTML = '<span>' + fmt(lo) + '</span><canvas style="background:' + cssLut(d.cmap) + '"></canvas><span>' + fmt(hi) + '</span><span>' + esc(d.label || S.field || '') + '</span>';
+      leg.innerHTML = '<span>' + fmt(lo) + '</span><canvas style="background:' + cssLut(d.cmap) + '"></canvas><span>' + fmt(hi) + '</span><span>' + esc(d.label || fieldName || '') + '</span>';
     } else if (d.kind === 'particles') {
       var e = d.extent, scl = Math.min(g.w / (e[2] - e[0]), g.h / (e[3] - e[1])), ox = (g.w - (e[2] - e[0]) * scl) / 2, oy = (g.h + (e[3] - e[1]) * scl) / 2;
       var PX = function (x) { return ox + (x - e[0]) * scl; }, PY = function (y) { return oy - (y - e[1]) * scl; };
@@ -8162,13 +8382,13 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
       var ph = g.h / d.panels.length;
       d.panels.forEach(function (pn, idx) {
         var sim = pn.series.map(function (sr, k) { return { label: sr.label, x: arr(sr.x), y: arr(sr.y), color: C.series[k] }; });
-        var rs = refSeries(pn.key, sim.length ? sim[0].x : [0, 1], s.t);
-        drawPlot(ctx, { x: 0, y: idx * ph, w: g.w, h: ph }, { xlabel: idx === d.panels.length - 1 ? d.xlabel : '', ylabel: pn.ylabel, series: rs.series.concat(sim), bands: rs.bands });
+        var rs = refSeries(pn.key, sim.length ? sim[0].x : [0, 1], s.t, X);
+        drawPlot(ctx, { x: 0, y: idx * ph, w: g.w, h: ph }, { xlabel: idx === d.panels.length - 1 ? d.xlabel : '', ylabel: pn.ylabel, series: rs.series.concat(sim), bands: rs.bands, compact: compact });
       });
       leg.innerHTML = '<span><i style="display:inline-block;width:14px;height:2px;background:' + C.sim + ';vertical-align:middle"></i> simulation</span><span><i style="display:inline-block;width:14px;border-top:1px dashed ' + C.ref + ';vertical-align:middle"></i> exact / reference</span>';
     } else if (d.kind === 'orbit') {
       var os = d.series.map(function (sr, k) { return { label: sr.label, x: arr(sr.x), y: arr(sr.y), color: C.series[k], width: 1 }; });
-      var rs2 = refSeries('orbit', [0], s.t);
+      var rs2 = refSeries('orbit', [0], s.t, X);
       drawPlot(ctx, { x: 0, y: 0, w: g.w, h: g.h }, { xlabel: 'q₁', ylabel: 'q₂', series: rs2.series.concat(os), equal: true, xrange: [d.extent[0], d.extent[2]], yrange: [d.extent[1], d.extent[3]], marks: (d.points || []).map(function (m) { return { x: m.x, y: m.y, color: m.color || C.text }; }) });
       leg.innerHTML = '<span>trajectory (last ' + (os[0] ? os[0].x.length : 0) + ' samples)</span>';
     }
@@ -8371,6 +8591,137 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     try { location.hash = [S.scene, S.exp ? S.exp.id : '', S.method].join('/'); } catch (e) { /* ignore */ }
   }
 
+
+  /* ---------------- live wall: every scene running at once ---------------- */
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function rel0(v, v0) { return v0 ? Math.abs((v - v0) / v0) : Math.abs(v - v0); }
+  var TILE = {
+    cavity: { preview: { N: 64 }, m: [
+      { label: 'residual', log: true, f: function (s) { return s.probe('residual'); } },
+      { label: 'ψ min', f: function (s) { return s.probe('psi_min'); } }] },
+    'taylor-green': { preview: { N: 64 }, loopT: 5, m: [
+      { label: 'KE / KE₀', f: function (s, T) { var k = s.probe('kinetic_energy'); if (T.k0 == null) T.k0 = k; return k / T.k0; } },
+      { label: 'L2 error', log: true, f: function (s) { return s.probe('l2_error'); } }] },
+    cylinder: { weight: 2, wide: true, expIndex: 1, preview: { res: 12 }, m: [
+      { label: 'C_D', f: function (s) { return s.probe('forces').cd; } },
+      { label: 'C_L', f: function (s) { return s.probe('forces').cl; } }] },
+    sod: { preview: { N: 200 }, loopT: 0.2, m: [
+      { label: 'mass drift', log: true, f: function (s, T) { var t = s.probe('totals'); if (!T.t0) T.t0 = t; return rel0(t.mass, T.t0.mass) + 1e-17; } },
+      { label: 'max ρ', f: function (s) { var p = s.probe('profile'); return Math.max.apply(null, Array.prototype.slice.call(p.rho)); } }] },
+    'swe-dambreak': { loopT: 6, m: [
+      { label: 'mass drift', log: true, f: function (s, T) { var t = s.probe('totals'); if (!T.t0) T.t0 = t; return rel0(t.mass, T.t0.mass) + 1e-17; } },
+      { label: 'max u', f: function (s) { var p = s.probe('profile'); return Math.max.apply(null, Array.prototype.slice.call(p.u)); } }] },
+    kepler: { prefer: 'stormer-verlet', maxSteps: 12, loopT: 2 * Math.PI * 20, m: [
+      { label: '|ΔH| / |H₀|', log: true, f: function (s, T) { var v = s.probe('invariants'); if (!T.i0) T.i0 = v; return rel0(v.H, T.i0.H) + 1e-17; } },
+      { label: '|ΔL| / |L₀|', log: true, f: function (s, T) { var v = s.probe('invariants'); if (!T.i0) T.i0 = v; return rel0(v.L, T.i0.L) + 1e-17; } }] },
+    'dam-break': { weight: 3, wide: true, preview: { N: 18, nx: 14 }, loopIf: function (s, T) { return s.t * Math.sqrt(2 * (T.params.g || 9.81) / (T.params.a || 1)) > 3.2; }, m: [
+      { label: 'front Z = x/a', f: function (s, T) { return s.probe('front') / (T.params.a || 1); } },
+      { label: 'column H/2a', f: function (s, T) { var h = s.probe('column_height'); return h == null ? NaN : h / (2 * (T.params.a || 1)); } }] }
+  };
+  var W = { tiles: [], running: !REDUCED, built: false, last: 0, sps: 0, spsN: 0, spsT: 0 };
+
+  function bestMethod(sceneId) {
+    var ms = methodsFor(sceneId), exp = (LAB.scenes[sceneId].experiments || [])[0];
+    var rank = { matched: 0, flagged: 1, incomplete: 2 };
+    var pref = TILE[sceneId] && TILE[sceneId].prefer;
+    if (pref && ms.indexOf(pref) >= 0) return pref;
+    ms.sort(function (a, b) {
+      var ra = exp && LAB.verification[a + '@' + exp.id], rb = exp && LAB.verification[b + '@' + exp.id];
+      return (ra ? rank[ra.status] : 3) - (rb ? rank[rb.status] : 3);
+    });
+    return ms[0];
+  }
+  function tileStart(T) {
+    var spec = TILE[T.scene] || {}, exps = LAB.scenes[T.scene].experiments || [];
+    var exp = exps[spec.expIndex || 0] || exps[0] || null;
+    T.exp = exp; T.k0 = null; T.t0 = null; T.i0 = null; T.hold = 0; T.err = null;
+    T.params = LAB.defaultParams(T.method, T.scene, null);
+    if (exp && exp.params) for (var k in exp.params) if (T.params[k] !== undefined) T.params[k] = exp.params[k];
+    var pv = []; if (spec.preview) for (var q in spec.preview) if (T.params[q] !== undefined && T.params[q] !== spec.preview[q]) { T.params[q] = spec.preview[q]; pv.push(q + '=' + spec.preview[q]); }
+    T.el.querySelector('.t-rate').textContent = pv.length ? 'preview ' + pv.join(', ') : '';
+    T.el.querySelector('.t-rate').title = pv.length ? 'Live tiles run at a lighter resolution so all scenes animate together. Open in lab for the reviewed resolution.' : '';
+    try { T.sim = LAB.methods[T.method].create(T.scene, Object.assign({}, T.params)); } catch (e) { T.sim = null; T.err = e.message; }
+    T.hist = (TILE[T.scene] ? TILE[T.scene].m : []).map(function () { return []; });
+    var rec = exp && LAB.verification[T.method + '@' + exp.id];
+    T.el.querySelector('.t-chip').innerHTML = chip(rec ? rec.status : null);
+    T.el.querySelector('.t-gap').textContent = rec && rec.gaps && rec.gaps[0] ? rec.gaps[0].quantity + ': ' + fmt(rec.gaps[0].value) + (rec.gaps[0].tolerance != null ? ' (tol ' + fmt(rec.gaps[0].tolerance) + ')' : '') : (rec ? '' : 'awaiting independent review');
+  }
+  function buildWall() {
+    var host = $('wall'), scenes = Object.keys(LAB.scenes).filter(function (k) { return methodsFor(k).length; });
+    host.innerHTML = '';
+    W.tiles = scenes.map(function (sid, i) {
+      var el = document.createElement('article'); el.className = 'tile' + (TILE[sid] && TILE[sid].wide ? ' wide' : ''); el.style.setProperty('--i', i);
+      var ms = methodsFor(sid);
+      el.innerHTML = '<header><div><div class="t-scene">' + esc(LAB.scenes[sid].title) + '</div>' +
+        '<select class="t-method" id="tm-' + sid + '" aria-label="Method for ' + esc(LAB.scenes[sid].title) + '">' + ms.map(function (m) { return '<option value="' + m + '">' + esc(LAB.methods[m].name) + '</option>'; }).join('') + '</select></div><div class="t-chip"></div></header>' +
+        '<canvas class="t-cv" id="tc-' + sid + '"></canvas>' +
+        '<div class="t-gap"></div>' +
+        '<div class="t-metrics">' + (TILE[sid] ? TILE[sid].m : []).map(function (m, k) { return '<div class="t-m"><span class="t-ml">' + esc(m.label) + '</span><span class="t-mv" data-k="' + k + '">—</span><canvas class="spark" data-k="' + k + '"></canvas></div>'; }).join('') + '</div>' +
+        '<footer><span class="t-clock">t = 0</span><span class="t-rate"></span><button class="btn t-open" type="button">Open in lab →</button></footer>';
+      host.appendChild(el);
+      var T = { scene: sid, method: bestMethod(sid), el: el, visible: true, cv: el.querySelector('.t-cv'), frame: 0 };
+      el.querySelector('.t-method').value = T.method;
+      el.querySelector('.t-method').addEventListener('change', function () { T.method = this.value; tileStart(T); });
+      el.querySelector('.t-open').addEventListener('click', function () { W.running = false; syncWall(); showPage('lab'); select(T.scene, T.exp ? T.exp.id : null, T.method); if (!REDUCED) { S.running = true; syncRun(); } });
+      tileStart(T);
+      return T;
+    });
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (es) { es.forEach(function (e) { W.tiles.forEach(function (T) { if (T.el === e.target) T.visible = e.isIntersecting; }); }); });
+      W.tiles.forEach(function (T) { io.observe(T.el); });
+    }
+    var counts = { matched: 0, flagged: 0, incomplete: 0 }; for (var k in LAB.verification) counts[LAB.verification[k].status]++;
+    var total = 0; Object.keys(LAB.scenes).forEach(function (sid) { (LAB.scenes[sid].experiments || []).forEach(function () { total += methodsFor(sid).length; }); });
+    $('wall-stats').innerHTML = '<span><b class="pass">' + counts.matched + '</b> matched</span><span><b style="color:var(--flag)">' + counts.flagged + '</b> flagged</span><span><b style="color:var(--inc)">' + counts.incomplete + '</b> incomplete</span><span><b>' + (total - counts.matched - counts.flagged - counts.incomplete) + '</b> awaiting review</span><span><b>' + Object.keys(LAB.methods).length + '</b> methods</span><span><b id="wall-sps">0</b> steps / s</span>';
+    W.built = true;
+  }
+  function spark(cv, ys, log) {
+    var g = setupCanvas(cv, 22), c = g.ctx; c.clearRect(0, 0, g.w, g.h);
+    var v = ys.filter(function (y) { return isFinite(y) && (!log || y > 0); }).map(function (y) { return log ? Math.log10(y) : y; });
+    if (v.length < 2) return;
+    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v); if (hi - lo < 1e-15) { lo -= 1; hi += 1; }
+    var X = function (i) { return 1 + i / (v.length - 1) * (g.w - 5); }, Y = function (y) { return g.h - 3 - (y - lo) / (hi - lo) * (g.h - 6); };
+    c.beginPath(); c.moveTo(X(0), g.h); v.forEach(function (y, i) { c.lineTo(X(i), Y(y)); }); c.lineTo(X(v.length - 1), g.h); c.closePath();
+    c.fillStyle = 'rgba(242,179,61,0.12)'; c.fill();
+    c.beginPath(); v.forEach(function (y, i) { if (i) c.lineTo(X(i), Y(y)); else c.moveTo(X(i), Y(y)); }); c.strokeStyle = C.sim; c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = C.ref; c.beginPath(); c.arc(X(v.length - 1), Y(v[v.length - 1]), 2.2, 0, 6.283); c.fill();
+  }
+  function wallTick(now) {
+    if (W.running && W.built && $('page-live').classList.contains('on')) {
+      var vis = W.tiles.filter(function (T) { return T.visible && T.sim; });
+      var wsum = vis.reduce(function (a, T) { return a + ((TILE[T.scene] || {}).weight || 1); }, 0) || 1, steps = 0;
+      vis.forEach(function (T) {
+        var spec = TILE[T.scene] || {}, s = T.sim, t0 = performance.now(), budget = 14 * (spec.weight || 1) / wsum, n = 0;
+        if (T.hold > 0) { T.hold--; if (!T.hold) tileStart(T); return; }
+        try {
+          do { s.step(); steps++; n++; } while (performance.now() - t0 < budget && !(spec.maxSteps && n >= spec.maxSteps) && !(spec.loopT && s.t >= spec.loopT));
+        } catch (e) { T.err = e.message; T.hold = 90; }
+        if ((s.diverged && s.diverged()) || (spec.loopT && s.t >= spec.loopT - 1e-12) || (spec.loopIf && spec.loopIf(s, T))) T.hold = 75;
+        (spec.m || []).forEach(function (m, k) { var y; try { y = m.f(s, T); } catch (e) { y = NaN; } T.hist[k].push(y); if (T.hist[k].length > 160) T.hist[k].shift(); });
+      });
+      vis.forEach(function (T) {
+        if (!T.sim) return;
+        var d; try { d = T.sim.view(); } catch (e) { d = null; }
+        if (d) renderDesc(d, T.cv, T.el.classList.contains('wide') && window.innerWidth > 1100 ? 250 : 210, null, T.sim, T, null, true);
+        T.el.querySelector('.t-clock').textContent = 't = ' + fmt(T.sim.t) + (T.hold ? '  · restarting' : '');
+        T.el.classList.toggle('holding', T.hold > 0);
+        if (T.frame++ % 3 === 0) (TILE[T.scene] ? TILE[T.scene].m : []).forEach(function (m, k) {
+          var h = T.hist[k], last = h[h.length - 1];
+          T.el.querySelector('.t-mv[data-k="' + k + '"]').textContent = fmt(last);
+          spark(T.el.querySelector('canvas.spark[data-k="' + k + '"]'), h, m.log);
+        });
+      });
+      W.spsN += steps;
+      if (now - W.spsT > 1000) { var el = $('wall-sps'); if (el) el.textContent = Math.round(W.spsN * 1000 / (now - W.spsT)).toLocaleString(); W.spsN = 0; W.spsT = now; }
+    }
+    requestAnimationFrame(wallTick);
+  }
+  function syncWall() {
+    var b = $('wall-run'); if (!b) return;
+    b.setAttribute('aria-pressed', W.running ? 'true' : 'false'); b.textContent = W.running ? 'Pause all' : 'Run all';
+    $('live-dot').classList.toggle('on', W.running);
+  }
+
   /* ---------------- pages ---------------- */
   function allExperiments() { var out = []; Object.keys(LAB.scenes).forEach(function (k) { (LAB.scenes[k].experiments || []).forEach(function (e) { out.push({ scene: k, exp: e }); }); }); return out; }
   function renderMatrix() {
@@ -8441,8 +8792,9 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   function showPage(id) {
     document.querySelectorAll('.tabs-top button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-page') === id ? 'true' : 'false'); });
     document.querySelectorAll('.page').forEach(function (p) { p.classList.toggle('on', p.id === 'page-' + id); });
-    document.querySelectorAll('.lab-only').forEach(function (el) { el.style.visibility = id === 'lab' ? 'visible' : 'hidden'; });
+    document.querySelectorAll('.lab-only').forEach(function (el) { el.style.display = id === 'lab' ? '' : 'none'; });
     if (id === 'matrix') renderMatrix(); if (id === 'graph') renderGraph(); if (id === 'sources') renderSources();
+    if (id === 'live' && !W.built) buildWall();
     if (id !== 'lab') { S.running = false; syncRun(); }
   }
 
@@ -8456,9 +8808,9 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
         document.querySelectorAll('.rpane').forEach(function (p) { p.classList.toggle('on', p.id === 'r-' + b.getAttribute('data-r')); });
       });
     });
-    $('sel-scene').addEventListener('change', function () { S.running = false; syncRun(); select(this.value, null, S.method); });
-    $('sel-exp').addEventListener('change', function () { if (this.value === '__custom') return; S.running = false; syncRun(); select(S.scene, this.value, S.method); });
-    $('sel-method').addEventListener('change', function () { S.running = false; syncRun(); S.method = this.value; reset(false); renderExperiment(); renderMethodPanes(); drawAll(); try { location.hash = [S.scene, S.exp ? S.exp.id : '', S.method].join('/'); } catch (e) { /* ignore */ } });
+    $('sel-scene').addEventListener('change', function () { select(this.value, null, S.method); S.running = !REDUCED; syncRun(); });
+    $('sel-exp').addEventListener('change', function () { if (this.value === '__custom') return; select(S.scene, this.value, S.method); S.running = !REDUCED; syncRun(); });
+    $('sel-method').addEventListener('change', function () { S.method = this.value; reset(false); S.running = !REDUCED; syncRun(); renderExperiment(); renderMethodPanes(); drawAll(); try { location.hash = [S.scene, S.exp ? S.exp.id : '', S.method].join('/'); } catch (e) { /* ignore */ } });
     $('sel-field').addEventListener('change', function () { S.field = this.value; drawView(); });
     $('sel-spf').addEventListener('change', function () { S.spf = +this.value; });
     $('btn-run').addEventListener('click', function () { S.running = !S.running; syncRun(); });
@@ -8467,10 +8819,13 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     window.addEventListener('resize', function () { drawAll(); });
     var hs = (location.hash || '').replace('#', '').split('/');
     var first = Object.keys(LAB.scenes).filter(function (k) { return methodsFor(k).length; })[0];
-    if (hs[0] && LAB.scenes[hs[0]] && methodsFor(hs[0]).length) select(hs[0], hs[1], hs[2]);
-    else if (first) select(first, null, null);
-    else showErr('No methods registered yet.');
+    $('wall-run').addEventListener('click', function () { W.running = !W.running; syncWall(); });
+    $('wall-restart').addEventListener('click', function () { W.tiles.forEach(tileStart); });
+    if (hs[0] && LAB.scenes[hs[0]] && methodsFor(hs[0]).length) { select(hs[0], hs[1], hs[2]); showPage('lab'); if (!REDUCED) { S.running = true; syncRun(); } }
+    else { if (first) select(first, null, null); else showErr('No methods registered yet.'); showPage('live'); }
+    syncWall();
     requestAnimationFrame(tick);
+    requestAnimationFrame(wallTick);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })(window.LAB);

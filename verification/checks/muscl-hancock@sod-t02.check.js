@@ -225,6 +225,61 @@ for (const N of [200, 400, 1600]) {
     L1rho_ratio_muscl_over_godunov: l1(prM, N).rho / l1(prG, N).rho };
 }
 
+/* ---- (f) genuinely smooth problems through the SAME evolution kernel (second order in smooth regions).
+ * The method only accepts piecewise-constant Riemann data, so the reviewer evaluates an in-memory copy of
+ * methods/muscl-hancock.js (the file on disk is NOT modified) in which ONE line is appended after the
+ * initial-condition loop body: an optional hook that overwrites the cell averages. step(), predictor(), hllc()
+ * and all metrics are byte-identical. The copy is registered under id 'muscl-hancock-revIC'.
+ * Tests (t = 0.2, transmissive BCs, data compactly away from boundaries, 5-point Gauss cell averages):
+ *   entropy wave rho = 1 + 0.5 exp(-((x-0.4)/0.05)^2), u = 1, p = 1  -> exact rho(x - t), u = 1, p = 1
+ *   isentropic right-running simple wave u0 = 0.1 exp(-((x-0.3)/0.08)^2), c = 1 + 0.2u, rho = c^5, p = rho^1.4/1.4
+ *     (Riemann invariant u - 5c constant; exact by characteristics x = xi + (1 + 1.2 u0(xi)) t; breaking time ~0.78 > 0.2)
+ * Reviewer criterion (fixed a priori): L1(rho) order >= 1.7 on the finest two pairs (minmod and van Leer). */
+const smooth = (function () {
+  const fs = require('fs'), vm = require('vm'), path = require('path');
+  let src = fs.readFileSync(path.join(H.ROOT, 'methods/muscl-hancock.js'), 'utf8');
+  const line = 'E[i + G] = fl * UL[2] + (1 - fl) * UR[2];';
+  if (src.split(line).length !== 2) return { error: 'patch anchor not found exactly once; smooth test not run' };
+  src = src.replace(line, line + ' if (globalThis.__REV_IC) { var __c = globalThis.__REV_IC(a, b); R[i + G] = __c[0]; MU[i + G] = __c[1]; E[i + G] = __c[2]; }');
+  src = src.replace("id: 'muscl-hancock',", "id: 'muscl-hancock-revIC',");
+  vm.runInThisContext(src, { filename: 'muscl-hancock-revIC (in-memory)' });
+  const Mx = LAB.methods['muscl-hancock-revIC'];
+  const gq = [[-0.9061798459386640, 0.2369268850561891], [-0.5384693101056831, 0.4786286704993665], [0, 0.5688888888888889], [0.5384693101056831, 0.4786286704993665], [0.9061798459386640, 0.2369268850561891]];
+  const avg = (f, a, b) => { let s = 0; for (const [x, w] of gq) s += w * f(0.5 * (a + b) + 0.5 * (b - a) * x); return 0.5 * s; };
+  const gm = 1.4;
+  const ent = x => 1 + 0.5 * Math.exp(-(((x - 0.4) / 0.05) ** 2));
+  const sw0 = xi => 0.1 * Math.exp(-(((xi - 0.3) / 0.08) ** 2));
+  const dsw0 = xi => -2 * (xi - 0.3) / 0.0064 * sw0(xi);
+  const swU = (x, t) => { let xi = x - t; for (let k = 0; k < 80; k++) { const F = xi + (1 + 1.2 * sw0(xi)) * t - x, d = F / (1 + 1.2 * dsw0(xi) * t); xi -= d; if (Math.abs(d) < 1e-16) break; } return sw0(xi); };
+  const swState = u => { const c = 1 + 0.2 * u, rho = Math.pow(c, 5); return [rho, u, Math.pow(rho, gm) / gm]; };
+  const tests = {
+    entropyWave: { ic: (a, b) => { const r = avg(ent, a, b); return [r, r, 1 / (gm - 1) + 0.5 * r]; }, rho: x => ent(x - T) },
+    simpleWave: { ic: (a, b) => [avg(x => swState(sw0(x))[0], a, b), avg(x => { const s = swState(sw0(x)); return s[0] * s[1]; }, a, b),
+      avg(x => { const s = swState(sw0(x)); return s[2] / (gm - 1) + 0.5 * s[0] * s[1] * s[1]; }, a, b)], rho: x => swState(swU(x, T))[0] }
+  };
+  const out = {};
+  for (const [name, tst] of Object.entries(tests)) for (const [ln, lim] of [['minmod', 0], ['vanleer', 1]]) {
+    const rows = [];
+    for (const N of [50, 100, 200, 400, 800, 1600]) {
+      globalThis.__REV_IC = tst.ic;
+      const sim = Mx.create('sod', H.params('muscl-hancock', 'sod', { N, tEnd: T, limiter: lim }));
+      globalThis.__REV_IC = null;
+      while (sim.t < T - 1e-14) sim.step();
+      const pr = sim.probe('profile'); let e = 0, eu = 0;
+      for (let i = 0; i < N; i++) { e += Math.abs(pr.rho[i] - avg(tst.rho, i / N, (i + 1) / N)) / N; if (name === 'entropyWave') eu = Math.max(eu, Math.abs(pr.u[i] - 1), Math.abs(pr.p[i] - 1)); }
+      rows.push({ N, L1rho: e, maxUPdev: name === 'entropyWave' ? eu : undefined });
+    }
+    const ords = rows.slice(1).map((r, i) => Math.log2(rows[i].L1rho / r.L1rho));
+    out[name + '_' + ln] = { rows, orders: ords, pass: ords.slice(-2).every(o => o >= 1.7) };
+  }
+  out.pass = Object.values(out).every(v => v.pass);
+  return out;
+})();
+
+/* ---- (g) structure of the non-monotone features (info): location/size of the largest u overshoot */
+const overshootLoc = [100, 400, 1600].map(N => { const pr = runs[N].pr; let iu = 0; for (let i = 0; i < N; i++) if (pr.u[i] > pr.u[iu]) iu = i;
+  return { N, uMax: pr.u[iu], x: pr.x[iu], relToUstar: pr.u[iu] / st.u - 1, distToTail: pr.x[iu] - wp.rarefactionTail }; });
+
 /* ---- info: modified Sod (sonic rarefaction) vs its second-order band */
 const ms = R['sod-modified-exact-profile'];
 const modSod = [100, 400].map(N => {
@@ -241,10 +296,11 @@ const summary = {
   convergencePass: convPass, smoothPass,
   conservation: { perRun: cons, max: consMax, tol: tolTot, pass: consPass, energyDerived, energyRawReference: totRefRaw.energy },
   stability: stab, plateau, waves, wavePass, kinkRobust, oscillation: oscRows, oscPass,
-  firstOrderReduction: red, reductionPass, variants, widths, modifiedSodInfo: modSod,
+  firstOrderReduction: red, reductionPass, smoothTests: smooth, overshootLoc, variants, widths, modifiedSodInfo: modSod,
   passes: {
     'L1 rho N=100/200/400 within second-order band': conv.filter(r => r.band).every(r => r.pass),
-    'overall convergence orders in [0.6,1.2]': convPass, 'smooth-region order >= 1.7': smoothPass,
+    'overall convergence orders in [0.6,1.2]': convPass, 'Sod smooth-window order >= 1.7': smoothPass,
+    'smooth-data tests order >= 1.7 (entropy + simple wave)': !!smooth.pass,
     conservation: consPass, stability: stab.pass,
     'plateaus (1%)': Object.keys(plateau).filter(k => plateau[k].ref).every(k => plateau[k].pass),
     'wave positions N=200': wavePass, 'oscillations (TV / overshoot <= 1%)': oscPass, 'limiter=2 == hllc-godunov': reductionPass

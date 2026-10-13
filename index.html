@@ -12,6 +12,7 @@
 <header class="bar">
   <div class="mark">Browser<b>Lab</b></div>
   <nav class="tabs-top" role="tablist">
+    <button role="tab" data-page="live" aria-selected="false"><span class="live-dot" id="live-dot"></span>Live</button>
     <button role="tab" data-page="lab" aria-selected="true">Lab</button>
     <button role="tab" data-page="matrix" aria-selected="false">Verification matrix</button>
     <button role="tab" data-page="graph" aria-selected="false">Build graph</button>
@@ -75,6 +76,17 @@
 </div>
 </section>
 
+<section class="page" id="page-live">
+  <div class="wall-head">
+    <div>
+      <h1>Live runs</h1>
+      <p class="lede">Every reference scene running in your browser right now, each with its best-verified method. Status chips come from independent reviewers. Swap the method on any tile, or open it in the lab for equations, code and the full gap report.</p>
+    </div>
+    <div class="wall-ctl"><button class="btn primary" id="wall-run" aria-pressed="true">Pause all</button><button class="btn" id="wall-restart">Restart all</button></div>
+  </div>
+  <div class="wall-stats" id="wall-stats"></div>
+  <div class="wall" id="wall"></div>
+</section>
 <section class="page" id="page-matrix"></section>
 <section class="page" id="page-graph"></section>
 <section class="page" id="page-sources"></section>
@@ -114,6 +126,8 @@
 <script src="verification/results/hll-swe@swe-wet.js"></script>
 <script src="verification/results/hllc-godunov@sod-t02.js"></script>
 <script src="verification/results/lax-friedrichs@sod-t02.js"></script>
+<script src="verification/results/muscl-hancock@sod-t02.js"></script>
+<script src="verification/results/psi-omega-fd@cavity-re100.js"></script>
 <script src="verification/results/rk4@kepler-e06.js"></script>
 <script src="verification/results/stormer-verlet@kepler-e06.js"></script>
 <script src="verification/results/symplectic-euler@kepler-e06.js"></script>

@@ -59,7 +59,7 @@
   }
   /* spec: {xlabel, ylabel, series:[{x,y,color,dash,points,width}], ylog, equal, xrange, yrange, bands:[{y0,y1,color}]} */
   function drawPlot(ctx, R, spec) {
-    var L = 46, B = 26, T = 8, Rr = 10, x0 = R.x + L, y0 = R.y + T, pw = R.w - L - Rr, ph = R.h - T - B;
+    var L = spec.compact ? 34 : 46, B = spec.compact ? 18 : 26, T = spec.compact ? 4 : 8, Rr = spec.compact ? 6 : 10, x0 = R.x + L, y0 = R.y + T, pw = R.w - L - Rr, ph = R.h - T - B;
     ctx.fillStyle = C.bg; ctx.fillRect(R.x, R.y, R.w, R.h);
     var xs = [], ys = [], ylog = spec.ylog;
     spec.series.forEach(function (s) { for (var i = 0; i < s.x.length; i++) { var yv = s.y[i]; if (isFinite(s.x[i]) && isFinite(yv) && (!ylog || yv > 0)) { xs.push(s.x[i]); ys.push(ylog ? Math.log10(yv) : yv); } } });
@@ -124,35 +124,45 @@
   }
 
   /* ---------------- reference overlays ---------------- */
-  function whenOk(ref) {
+  function whenOk(ref, X) {
     var w = ref.overlay && ref.overlay.when; if (!w) return true;
     for (var k in w) {
-      var have = S.params[k];
-      if (have === undefined && S.exp && S.exp.params) have = S.exp.params[k];
+      var have = X.params[k];
+      if (have === undefined && X.exp && X.exp.params) have = X.exp.params[k];
       if (have === undefined) return false;
       if (Math.abs(have - w[k]) > 1e-9 * Math.max(1, Math.abs(w[k]))) return false;
     }
     return true;
   }
-  function refsFor(plotKey) {
-    return LAB.referencesFor(S.scene).filter(function (r) { return r.overlay && r.overlay.plot === plotKey && whenOk(r); });
+  function refsFor(plotKey, X) {
+    return LAB.referencesFor(X.scene).filter(function (r) { return r.overlay && r.overlay.plot === plotKey && whenOk(r, X); });
   }
-  function refSeries(plotKey, xsSim, t) {
+  var refCache = {}, refCacheN = 0;
+  function refSeries(plotKey, xsSim, t, X) {
+    X = X || S;
+    var ck = X.scene + '|' + plotKey + '|' + (+t).toPrecision(4) + '|' + (xsSim.length ? xsSim[0] + ':' + xsSim[xsSim.length - 1] : '') + '|' + JSON.stringify(X.params);
+    if (refCache[ck]) return refCache[ck];
+    if (++refCacheN > 400) { refCache = {}; refCacheN = 0; }
+    var res = refSeriesRaw(plotKey, xsSim, t, X);
+    refCache[ck] = res;
+    return res;
+  }
+  function refSeriesRaw(plotKey, xsSim, t, X) {
     var out = [], bands = [];
-    refsFor(plotKey).forEach(function (r, idx) {
+    refsFor(plotKey, X).forEach(function (r, idx) {
       var o = r.overlay;
       try {
         if (r.kind === 'table') {
           var ix = r.columns.indexOf(o.x), iy = r.columns.indexOf(o.y);
           out.push({ label: r.label || ('ref: ' + (LAB.sources[r.source] ? shortCite(LAB.sources[r.source]) : r.source)), x: r.rows.map(function (row) { return row[ix]; }), y: r.rows.map(function (row) { return row[iy]; }), color: C.ref, points: true });
         } else if (r.kind === 'function' && (typeof r.fn === 'function' || o.eval)) {
-          var xs = [], ys = [], n = 400, lo, hi;
+          var xs = [], ys = [], n = 240, lo, hi;
           if (o.sample === 't') { lo = 0; hi = Math.max(t, 1e-6) * (o.ahead || 1.0); }
           else { lo = o.range ? o.range[0] : Math.min.apply(null, xsSim); hi = o.range ? o.range[1] : Math.max.apply(null, xsSim); }
           for (var i = 0; i <= n; i++) {
-            var xv = lo + (hi - lo) * i / n, v = o.eval ? o.eval(xv, t, S.params) : o.sample === 't' ? r.fn(xv, S.params) : r.fn(xv, t, S.params);
+            var xv = lo + (hi - lo) * i / n, v = o.eval ? o.eval(xv, t, X.params) : o.sample === 't' ? r.fn(xv, X.params) : r.fn(xv, t, X.params);
             if (o.field && v) v = v[o.field];
-            xs.push(xv); ys.push(o.transform ? o.transform(v, S) : v);
+            xs.push(xv); ys.push(o.transform ? o.transform(v, X) : v);
           }
           out.push({ label: r.label || 'exact', x: xs, y: ys, color: C.ref, dash: [5, 3], width: 1.2 });
         } else if (r.kind === 'scalar' && r.range) {
@@ -251,20 +261,28 @@
   }
 
   /* ---------------- main view ---------------- */
-  var off = document.createElement('canvas');
   function drawView() {
     var s = S.sim, cv = $('cv'); if (!s) return;
     var d; try { d = s.view(S.field); } catch (e) { showErr('view() failed: ' + e.message); return; }
     if (!d) return;
-    var wrapW = cv.parentNode.clientWidth - 24, aspect = 0.62;
-    if (d.extent) aspect = (d.extent[3] - d.extent[1]) / (d.extent[2] - d.extent[0]);
-    if (d.kind === 'profiles') aspect = 0.32 * d.panels.length;
-    if (d.kind === 'orbit') aspect = 0.62;
-    var cssH = Math.max(160, Math.min(window.innerHeight * 0.62, wrapW * aspect));
+    var wrapW = cv.parentNode.clientWidth - 24;
+    var cssH = Math.max(160, Math.min(window.innerHeight * 0.62, wrapW * viewAspect(d)));
+    renderDesc(d, cv, cssH, $('legend'), s, S, S.field);
+  }
+  function viewAspect(d) {
+    if (d.kind === 'profiles') return 0.32 * d.panels.length;
+    if (d.kind === 'orbit') return 0.62;
+    if (d.extent) return (d.extent[3] - d.extent[1]) / (d.extent[2] - d.extent[0]);
+    return 0.62;
+  }
+  var offs = {};
+  /* Draws a render descriptor into any canvas. X = {scene, params, exp} for reference overlays. */
+  function renderDesc(d, cv, cssH, leg, s, X, fieldName, compact) {
+    leg = leg || { set innerHTML(v) { /* no legend */ } };
     cv.style.height = cssH + 'px';
     var g = setupCanvas(cv, cssH), ctx = g.ctx;
+    var off = offs[cv.id || 'x'] || (offs[cv.id || 'x'] = document.createElement('canvas'));
     ctx.fillStyle = C.bg; ctx.fillRect(0, 0, g.w, g.h);
-    var leg = $('legend');
     if (d.kind === 'field') {
       if (off.width !== d.nx || off.height !== d.ny) { off.width = d.nx; off.height = d.ny; }
       var octx = off.getContext('2d'), img = octx.createImageData(d.nx, d.ny), L = CMAPS[d.cmap] || CMAPS.sequential;
@@ -278,7 +296,7 @@
       octx.putImageData(img, 0, 0);
       var sc = Math.min(g.w / d.nx, g.h / d.ny), dw = d.nx * sc, dh = d.ny * sc;
       ctx.imageSmoothingEnabled = true; ctx.drawImage(off, (g.w - dw) / 2, (g.h - dh) / 2, dw, dh);
-      leg.innerHTML = '<span>' + fmt(lo) + '</span><canvas style="background:' + cssLut(d.cmap) + '"></canvas><span>' + fmt(hi) + '</span><span>' + esc(d.label || S.field || '') + '</span>';
+      leg.innerHTML = '<span>' + fmt(lo) + '</span><canvas style="background:' + cssLut(d.cmap) + '"></canvas><span>' + fmt(hi) + '</span><span>' + esc(d.label || fieldName || '') + '</span>';
     } else if (d.kind === 'particles') {
       var e = d.extent, scl = Math.min(g.w / (e[2] - e[0]), g.h / (e[3] - e[1])), ox = (g.w - (e[2] - e[0]) * scl) / 2, oy = (g.h + (e[3] - e[1]) * scl) / 2;
       var PX = function (x) { return ox + (x - e[0]) * scl; }, PY = function (y) { return oy - (y - e[1]) * scl; };
@@ -297,13 +315,13 @@
       var ph = g.h / d.panels.length;
       d.panels.forEach(function (pn, idx) {
         var sim = pn.series.map(function (sr, k) { return { label: sr.label, x: arr(sr.x), y: arr(sr.y), color: C.series[k] }; });
-        var rs = refSeries(pn.key, sim.length ? sim[0].x : [0, 1], s.t);
-        drawPlot(ctx, { x: 0, y: idx * ph, w: g.w, h: ph }, { xlabel: idx === d.panels.length - 1 ? d.xlabel : '', ylabel: pn.ylabel, series: rs.series.concat(sim), bands: rs.bands });
+        var rs = refSeries(pn.key, sim.length ? sim[0].x : [0, 1], s.t, X);
+        drawPlot(ctx, { x: 0, y: idx * ph, w: g.w, h: ph }, { xlabel: idx === d.panels.length - 1 ? d.xlabel : '', ylabel: pn.ylabel, series: rs.series.concat(sim), bands: rs.bands, compact: compact });
       });
       leg.innerHTML = '<span><i style="display:inline-block;width:14px;height:2px;background:' + C.sim + ';vertical-align:middle"></i> simulation</span><span><i style="display:inline-block;width:14px;border-top:1px dashed ' + C.ref + ';vertical-align:middle"></i> exact / reference</span>';
     } else if (d.kind === 'orbit') {
       var os = d.series.map(function (sr, k) { return { label: sr.label, x: arr(sr.x), y: arr(sr.y), color: C.series[k], width: 1 }; });
-      var rs2 = refSeries('orbit', [0], s.t);
+      var rs2 = refSeries('orbit', [0], s.t, X);
       drawPlot(ctx, { x: 0, y: 0, w: g.w, h: g.h }, { xlabel: 'q₁', ylabel: 'q₂', series: rs2.series.concat(os), equal: true, xrange: [d.extent[0], d.extent[2]], yrange: [d.extent[1], d.extent[3]], marks: (d.points || []).map(function (m) { return { x: m.x, y: m.y, color: m.color || C.text }; }) });
       leg.innerHTML = '<span>trajectory (last ' + (os[0] ? os[0].x.length : 0) + ' samples)</span>';
     }
@@ -506,6 +524,137 @@
     try { location.hash = [S.scene, S.exp ? S.exp.id : '', S.method].join('/'); } catch (e) { /* ignore */ }
   }
 
+
+  /* ---------------- live wall: every scene running at once ---------------- */
+  var REDUCED = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function rel0(v, v0) { return v0 ? Math.abs((v - v0) / v0) : Math.abs(v - v0); }
+  var TILE = {
+    cavity: { preview: { N: 64 }, m: [
+      { label: 'residual', log: true, f: function (s) { return s.probe('residual'); } },
+      { label: 'ψ min', f: function (s) { return s.probe('psi_min'); } }] },
+    'taylor-green': { preview: { N: 64 }, loopT: 5, m: [
+      { label: 'KE / KE₀', f: function (s, T) { var k = s.probe('kinetic_energy'); if (T.k0 == null) T.k0 = k; return k / T.k0; } },
+      { label: 'L2 error', log: true, f: function (s) { return s.probe('l2_error'); } }] },
+    cylinder: { weight: 2, wide: true, expIndex: 1, preview: { res: 12 }, m: [
+      { label: 'C_D', f: function (s) { return s.probe('forces').cd; } },
+      { label: 'C_L', f: function (s) { return s.probe('forces').cl; } }] },
+    sod: { preview: { N: 200 }, loopT: 0.2, m: [
+      { label: 'mass drift', log: true, f: function (s, T) { var t = s.probe('totals'); if (!T.t0) T.t0 = t; return rel0(t.mass, T.t0.mass) + 1e-17; } },
+      { label: 'max ρ', f: function (s) { var p = s.probe('profile'); return Math.max.apply(null, Array.prototype.slice.call(p.rho)); } }] },
+    'swe-dambreak': { loopT: 6, m: [
+      { label: 'mass drift', log: true, f: function (s, T) { var t = s.probe('totals'); if (!T.t0) T.t0 = t; return rel0(t.mass, T.t0.mass) + 1e-17; } },
+      { label: 'max u', f: function (s) { var p = s.probe('profile'); return Math.max.apply(null, Array.prototype.slice.call(p.u)); } }] },
+    kepler: { prefer: 'stormer-verlet', maxSteps: 12, loopT: 2 * Math.PI * 20, m: [
+      { label: '|ΔH| / |H₀|', log: true, f: function (s, T) { var v = s.probe('invariants'); if (!T.i0) T.i0 = v; return rel0(v.H, T.i0.H) + 1e-17; } },
+      { label: '|ΔL| / |L₀|', log: true, f: function (s, T) { var v = s.probe('invariants'); if (!T.i0) T.i0 = v; return rel0(v.L, T.i0.L) + 1e-17; } }] },
+    'dam-break': { weight: 3, wide: true, preview: { N: 18, nx: 14 }, loopIf: function (s, T) { return s.t * Math.sqrt(2 * (T.params.g || 9.81) / (T.params.a || 1)) > 3.2; }, m: [
+      { label: 'front Z = x/a', f: function (s, T) { return s.probe('front') / (T.params.a || 1); } },
+      { label: 'column H/2a', f: function (s, T) { var h = s.probe('column_height'); return h == null ? NaN : h / (2 * (T.params.a || 1)); } }] }
+  };
+  var W = { tiles: [], running: !REDUCED, built: false, last: 0, sps: 0, spsN: 0, spsT: 0 };
+
+  function bestMethod(sceneId) {
+    var ms = methodsFor(sceneId), exp = (LAB.scenes[sceneId].experiments || [])[0];
+    var rank = { matched: 0, flagged: 1, incomplete: 2 };
+    var pref = TILE[sceneId] && TILE[sceneId].prefer;
+    if (pref && ms.indexOf(pref) >= 0) return pref;
+    ms.sort(function (a, b) {
+      var ra = exp && LAB.verification[a + '@' + exp.id], rb = exp && LAB.verification[b + '@' + exp.id];
+      return (ra ? rank[ra.status] : 3) - (rb ? rank[rb.status] : 3);
+    });
+    return ms[0];
+  }
+  function tileStart(T) {
+    var spec = TILE[T.scene] || {}, exps = LAB.scenes[T.scene].experiments || [];
+    var exp = exps[spec.expIndex || 0] || exps[0] || null;
+    T.exp = exp; T.k0 = null; T.t0 = null; T.i0 = null; T.hold = 0; T.err = null;
+    T.params = LAB.defaultParams(T.method, T.scene, null);
+    if (exp && exp.params) for (var k in exp.params) if (T.params[k] !== undefined) T.params[k] = exp.params[k];
+    var pv = []; if (spec.preview) for (var q in spec.preview) if (T.params[q] !== undefined && T.params[q] !== spec.preview[q]) { T.params[q] = spec.preview[q]; pv.push(q + '=' + spec.preview[q]); }
+    T.el.querySelector('.t-rate').textContent = pv.length ? 'preview ' + pv.join(', ') : '';
+    T.el.querySelector('.t-rate').title = pv.length ? 'Live tiles run at a lighter resolution so all scenes animate together. Open in lab for the reviewed resolution.' : '';
+    try { T.sim = LAB.methods[T.method].create(T.scene, Object.assign({}, T.params)); } catch (e) { T.sim = null; T.err = e.message; }
+    T.hist = (TILE[T.scene] ? TILE[T.scene].m : []).map(function () { return []; });
+    var rec = exp && LAB.verification[T.method + '@' + exp.id];
+    T.el.querySelector('.t-chip').innerHTML = chip(rec ? rec.status : null);
+    T.el.querySelector('.t-gap').textContent = rec && rec.gaps && rec.gaps[0] ? rec.gaps[0].quantity + ': ' + fmt(rec.gaps[0].value) + (rec.gaps[0].tolerance != null ? ' (tol ' + fmt(rec.gaps[0].tolerance) + ')' : '') : (rec ? '' : 'awaiting independent review');
+  }
+  function buildWall() {
+    var host = $('wall'), scenes = Object.keys(LAB.scenes).filter(function (k) { return methodsFor(k).length; });
+    host.innerHTML = '';
+    W.tiles = scenes.map(function (sid, i) {
+      var el = document.createElement('article'); el.className = 'tile' + (TILE[sid] && TILE[sid].wide ? ' wide' : ''); el.style.setProperty('--i', i);
+      var ms = methodsFor(sid);
+      el.innerHTML = '<header><div><div class="t-scene">' + esc(LAB.scenes[sid].title) + '</div>' +
+        '<select class="t-method" id="tm-' + sid + '" aria-label="Method for ' + esc(LAB.scenes[sid].title) + '">' + ms.map(function (m) { return '<option value="' + m + '">' + esc(LAB.methods[m].name) + '</option>'; }).join('') + '</select></div><div class="t-chip"></div></header>' +
+        '<canvas class="t-cv" id="tc-' + sid + '"></canvas>' +
+        '<div class="t-gap"></div>' +
+        '<div class="t-metrics">' + (TILE[sid] ? TILE[sid].m : []).map(function (m, k) { return '<div class="t-m"><span class="t-ml">' + esc(m.label) + '</span><span class="t-mv" data-k="' + k + '">—</span><canvas class="spark" data-k="' + k + '"></canvas></div>'; }).join('') + '</div>' +
+        '<footer><span class="t-clock">t = 0</span><span class="t-rate"></span><button class="btn t-open" type="button">Open in lab →</button></footer>';
+      host.appendChild(el);
+      var T = { scene: sid, method: bestMethod(sid), el: el, visible: true, cv: el.querySelector('.t-cv'), frame: 0 };
+      el.querySelector('.t-method').value = T.method;
+      el.querySelector('.t-method').addEventListener('change', function () { T.method = this.value; tileStart(T); });
+      el.querySelector('.t-open').addEventListener('click', function () { W.running = false; syncWall(); showPage('lab'); select(T.scene, T.exp ? T.exp.id : null, T.method); if (!REDUCED) { S.running = true; syncRun(); } });
+      tileStart(T);
+      return T;
+    });
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (es) { es.forEach(function (e) { W.tiles.forEach(function (T) { if (T.el === e.target) T.visible = e.isIntersecting; }); }); });
+      W.tiles.forEach(function (T) { io.observe(T.el); });
+    }
+    var counts = { matched: 0, flagged: 0, incomplete: 0 }; for (var k in LAB.verification) counts[LAB.verification[k].status]++;
+    var total = 0; Object.keys(LAB.scenes).forEach(function (sid) { (LAB.scenes[sid].experiments || []).forEach(function () { total += methodsFor(sid).length; }); });
+    $('wall-stats').innerHTML = '<span><b class="pass">' + counts.matched + '</b> matched</span><span><b style="color:var(--flag)">' + counts.flagged + '</b> flagged</span><span><b style="color:var(--inc)">' + counts.incomplete + '</b> incomplete</span><span><b>' + (total - counts.matched - counts.flagged - counts.incomplete) + '</b> awaiting review</span><span><b>' + Object.keys(LAB.methods).length + '</b> methods</span><span><b id="wall-sps">0</b> steps / s</span>';
+    W.built = true;
+  }
+  function spark(cv, ys, log) {
+    var g = setupCanvas(cv, 22), c = g.ctx; c.clearRect(0, 0, g.w, g.h);
+    var v = ys.filter(function (y) { return isFinite(y) && (!log || y > 0); }).map(function (y) { return log ? Math.log10(y) : y; });
+    if (v.length < 2) return;
+    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v); if (hi - lo < 1e-15) { lo -= 1; hi += 1; }
+    var X = function (i) { return 1 + i / (v.length - 1) * (g.w - 5); }, Y = function (y) { return g.h - 3 - (y - lo) / (hi - lo) * (g.h - 6); };
+    c.beginPath(); c.moveTo(X(0), g.h); v.forEach(function (y, i) { c.lineTo(X(i), Y(y)); }); c.lineTo(X(v.length - 1), g.h); c.closePath();
+    c.fillStyle = 'rgba(242,179,61,0.12)'; c.fill();
+    c.beginPath(); v.forEach(function (y, i) { if (i) c.lineTo(X(i), Y(y)); else c.moveTo(X(i), Y(y)); }); c.strokeStyle = C.sim; c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = C.ref; c.beginPath(); c.arc(X(v.length - 1), Y(v[v.length - 1]), 2.2, 0, 6.283); c.fill();
+  }
+  function wallTick(now) {
+    if (W.running && W.built && $('page-live').classList.contains('on')) {
+      var vis = W.tiles.filter(function (T) { return T.visible && T.sim; });
+      var wsum = vis.reduce(function (a, T) { return a + ((TILE[T.scene] || {}).weight || 1); }, 0) || 1, steps = 0;
+      vis.forEach(function (T) {
+        var spec = TILE[T.scene] || {}, s = T.sim, t0 = performance.now(), budget = 14 * (spec.weight || 1) / wsum, n = 0;
+        if (T.hold > 0) { T.hold--; if (!T.hold) tileStart(T); return; }
+        try {
+          do { s.step(); steps++; n++; } while (performance.now() - t0 < budget && !(spec.maxSteps && n >= spec.maxSteps) && !(spec.loopT && s.t >= spec.loopT));
+        } catch (e) { T.err = e.message; T.hold = 90; }
+        if ((s.diverged && s.diverged()) || (spec.loopT && s.t >= spec.loopT - 1e-12) || (spec.loopIf && spec.loopIf(s, T))) T.hold = 75;
+        (spec.m || []).forEach(function (m, k) { var y; try { y = m.f(s, T); } catch (e) { y = NaN; } T.hist[k].push(y); if (T.hist[k].length > 160) T.hist[k].shift(); });
+      });
+      vis.forEach(function (T) {
+        if (!T.sim) return;
+        var d; try { d = T.sim.view(); } catch (e) { d = null; }
+        if (d) renderDesc(d, T.cv, T.el.classList.contains('wide') && window.innerWidth > 1100 ? 250 : 210, null, T.sim, T, null, true);
+        T.el.querySelector('.t-clock').textContent = 't = ' + fmt(T.sim.t) + (T.hold ? '  · restarting' : '');
+        T.el.classList.toggle('holding', T.hold > 0);
+        if (T.frame++ % 3 === 0) (TILE[T.scene] ? TILE[T.scene].m : []).forEach(function (m, k) {
+          var h = T.hist[k], last = h[h.length - 1];
+          T.el.querySelector('.t-mv[data-k="' + k + '"]').textContent = fmt(last);
+          spark(T.el.querySelector('canvas.spark[data-k="' + k + '"]'), h, m.log);
+        });
+      });
+      W.spsN += steps;
+      if (now - W.spsT > 1000) { var el = $('wall-sps'); if (el) el.textContent = Math.round(W.spsN * 1000 / (now - W.spsT)).toLocaleString(); W.spsN = 0; W.spsT = now; }
+    }
+    requestAnimationFrame(wallTick);
+  }
+  function syncWall() {
+    var b = $('wall-run'); if (!b) return;
+    b.setAttribute('aria-pressed', W.running ? 'true' : 'false'); b.textContent = W.running ? 'Pause all' : 'Run all';
+    $('live-dot').classList.toggle('on', W.running);
+  }
+
   /* ---------------- pages ---------------- */
   function allExperiments() { var out = []; Object.keys(LAB.scenes).forEach(function (k) { (LAB.scenes[k].experiments || []).forEach(function (e) { out.push({ scene: k, exp: e }); }); }); return out; }
   function renderMatrix() {
@@ -576,8 +725,9 @@
   function showPage(id) {
     document.querySelectorAll('.tabs-top button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-page') === id ? 'true' : 'false'); });
     document.querySelectorAll('.page').forEach(function (p) { p.classList.toggle('on', p.id === 'page-' + id); });
-    document.querySelectorAll('.lab-only').forEach(function (el) { el.style.visibility = id === 'lab' ? 'visible' : 'hidden'; });
+    document.querySelectorAll('.lab-only').forEach(function (el) { el.style.display = id === 'lab' ? '' : 'none'; });
     if (id === 'matrix') renderMatrix(); if (id === 'graph') renderGraph(); if (id === 'sources') renderSources();
+    if (id === 'live' && !W.built) buildWall();
     if (id !== 'lab') { S.running = false; syncRun(); }
   }
 
@@ -591,9 +741,9 @@
         document.querySelectorAll('.rpane').forEach(function (p) { p.classList.toggle('on', p.id === 'r-' + b.getAttribute('data-r')); });
       });
     });
-    $('sel-scene').addEventListener('change', function () { S.running = false; syncRun(); select(this.value, null, S.method); });
-    $('sel-exp').addEventListener('change', function () { if (this.value === '__custom') return; S.running = false; syncRun(); select(S.scene, this.value, S.method); });
-    $('sel-method').addEventListener('change', function () { S.running = false; syncRun(); S.method = this.value; reset(false); renderExperiment(); renderMethodPanes(); drawAll(); try { location.hash = [S.scene, S.exp ? S.exp.id : '', S.method].join('/'); } catch (e) { /* ignore */ } });
+    $('sel-scene').addEventListener('change', function () { select(this.value, null, S.method); S.running = !REDUCED; syncRun(); });
+    $('sel-exp').addEventListener('change', function () { if (this.value === '__custom') return; select(S.scene, this.value, S.method); S.running = !REDUCED; syncRun(); });
+    $('sel-method').addEventListener('change', function () { S.method = this.value; reset(false); S.running = !REDUCED; syncRun(); renderExperiment(); renderMethodPanes(); drawAll(); try { location.hash = [S.scene, S.exp ? S.exp.id : '', S.method].join('/'); } catch (e) { /* ignore */ } });
     $('sel-field').addEventListener('change', function () { S.field = this.value; drawView(); });
     $('sel-spf').addEventListener('change', function () { S.spf = +this.value; });
     $('btn-run').addEventListener('click', function () { S.running = !S.running; syncRun(); });
@@ -602,10 +752,13 @@
     window.addEventListener('resize', function () { drawAll(); });
     var hs = (location.hash || '').replace('#', '').split('/');
     var first = Object.keys(LAB.scenes).filter(function (k) { return methodsFor(k).length; })[0];
-    if (hs[0] && LAB.scenes[hs[0]] && methodsFor(hs[0]).length) select(hs[0], hs[1], hs[2]);
-    else if (first) select(first, null, null);
-    else showErr('No methods registered yet.');
+    $('wall-run').addEventListener('click', function () { W.running = !W.running; syncWall(); });
+    $('wall-restart').addEventListener('click', function () { W.tiles.forEach(tileStart); });
+    if (hs[0] && LAB.scenes[hs[0]] && methodsFor(hs[0]).length) { select(hs[0], hs[1], hs[2]); showPage('lab'); if (!REDUCED) { S.running = true; syncRun(); } }
+    else { if (first) select(first, null, null); else showErr('No methods registered yet.'); showPage('live'); }
+    syncWall();
     requestAnimationFrame(tick);
+    requestAnimationFrame(wallTick);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })(window.LAB);

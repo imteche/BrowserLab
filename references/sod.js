@@ -218,10 +218,13 @@
    * boundary fluxes, which are exactly F(left state)-F(right state) = (0, pL-pR, 0) per unit time. */
   LAB.registerReference({
     id: 'sod-totals', scene: 'sod',
-    quantity: 'Domain integrals on [0,1]: mass(t)=0.5625, energy(t)=2.75 constant; momentum(t)=0.9*t (net boundary pressure force pL-pR)',
+    quantity: 'Domain integrals on [0,1]: mass(t)=0.5625, energy(t)=1.375 constant; momentum(t)=0.9*t (net boundary pressure force pL-pR)',
     source: 'sod1978', location: 'follows from the conservation form and the initial data (mass 0.5*1+0.5*0.125; E=p/(gamma-1): 0.5*2.5+0.5*0.25)',
     kind: 'function',
-    fn: function (x, t) { return { mass: 0.5625, momentum: 0.9 * t, energy: 2.75 }; },
+    fn: function (x, t) { return { mass: 0.5625, momentum: 0.9 * t, energy: 1.375 }; },
+    /* ERRATUM (orchestrator, 2026-10-13): originally 2.75, a factor-2 slip in 0.5*2.5+0.5*0.25 = 1.375.
+     * Caught independently by reviewers of lax-friedrichs@sod-t02 and hllc-godunov@sod-t02; confirmed by hand. */
+    erratum: 'energy corrected from 2.75 to 1.375 (arithmetic slip caught by two independent reviewers)',
     tolerance: { metric: 'rel', value: 1e-12, rationale: 'Conservative finite-volume schemes with transmissive BCs conserve to round-off; momentum grows by (pL-pR)*t = 0.9t ' +
       'while the waves remain inside [0,1] (head at 0.263, shock at 0.850 at t=0.2). Note: with N even, the diaphragm must lie on a cell face for mass to be exactly 0.5625.' }
   });
