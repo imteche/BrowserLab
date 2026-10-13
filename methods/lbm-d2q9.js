@@ -59,7 +59,9 @@
   };
 
   /* Set populations of node to equilibrium(rho, ux, uy) plus optional non-equilibrium part
-   * from the velocity gradient (Chapman-Enskog: f_neq = -tau w rho / cs^2 Q_ab d_a u_b). */
+   * from the velocity gradient. Chapman-Enskog gives the PRE-collision part
+   * f_neq = -tau w rho / cs^2 Q_ab d_a u_b; fo holds POST-collision populations (step() streams
+   * them first), and BGK scales f_neq by (1 - 1/tau), so the stored part is -(tau - 1) w rho / cs^2 Q. */
   Lattice.prototype.setEq = function (node, rho, ux, uy, dudx, dudy, dvdx, dvdy) {
     var n = this.n, usq = ux * ux + uy * uy, tau = this.tau;
     for (var i = 0; i < 9; i++) {
@@ -68,7 +70,7 @@
       if (dudx !== undefined) {
         var cx = CX[i], cy = CY[i];
         var Q = (cx * cx - 1 / 3) * dudx + cx * cy * (dudy + dvdx) + (cy * cy - 1 / 3) * dvdy;
-        feq -= tau * W[i] * rho * 3 * Q;
+        feq -= (tau - 1) * W[i] * rho * 3 * Q;
       }
       this.fo[i * n + node] = feq;
     }
@@ -118,12 +120,22 @@
 
       if (outlet[x]) {
         // Zou-He pressure (density) outlet on the right boundary, rho = rhoOut, u_y = 0;
-        // unknowns W(3), NW(6), SW(7) by non-equilibrium bounce-back. Wall-sourced corner
-        // populations keep their bounce-back value.
+        // unknowns W(3), NW(6), SW(7) by non-equilibrium bounce-back.
         var uo = (f0 + f2 + f4 + 2 * (f1 + f5 + f8)) / rhoOut - 1, ru = rhoOut * uo;
-        if (src[n3 + x] === OUTLET) f3 = f1 - (2 / 3) * ru;
-        if (src[n6 + x] === OUTLET) f6 = f8 - 0.5 * (f2 - f4) - ru / 6;
-        if (src[n7 + x] === OUTLET) f7 = f5 + 0.5 * (f2 - f4) - ru / 6;
+        var u6 = src[n6 + x] === OUTLET, u7 = src[n7 + x] === OUTLET;
+        if (u6 && u7) {
+          f3 = f1 - (2 / 3) * ru;
+          f6 = f8 - 0.5 * (f2 - f4) - ru / 6;
+          f7 = f5 + 0.5 * (f2 - f4) - ru / 6;
+        } else {
+          // Corner node next to a halfway wall: one diagonal (and f2 or f4) comes from wall
+          // bounce-back, so only two populations are unknown. Fix them by the same moment
+          // constraints Zou-He imposes (rho = rhoOut, rho u_y = 0; rho u_x = ru follows), instead
+          // of the full-column formulas, which would not close the density here.
+          if (u7) f7 = f2 - f4 + f5 + f6 - f8;      // bottom corner: f6 known from the wall
+          else if (u6) f6 = f4 - f2 + f7 + f8 - f5; // top corner: f7 known from the wall
+          f3 = f1 + f5 + f8 - ru - f6 - f7;
+        }
       }
 
       var rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8;
@@ -596,7 +608,7 @@
       'Unit mapping: nu_lat = U_lat N_ref / Re, tau = 3 nu_lat + 1/2; one step = U_lat/N_ref scene time units (cylinder: seconds, with N_ref = cells per D and U_ref = mean inflow Ubar)',
       'Cavity lid uses the moving-wall bounce-back rule (ladd1994), not the Zou-He lid formula listed for reference; it handles the lid corners without a special convention and conserves mass exactly',
       'Cylinder: staircase (halfway) bounce-back by default (geometry first order); ibb=1 switches to linear interpolated bounce-back (Bouzidi, Firdaouss & Lallemand 2001), which is not among the registered research sources',
-      'Cylinder outlet: Zou-He pressure condition rho = 1 (u_y = 0) on the last column, formulas derived by the builder from the same non-equilibrium bounce-back principle as the research lid formula; this replaces the benchmark do-nothing outflow',
+      'Cylinder outlet: Zou-He pressure condition rho = 1 (u_y = 0) on the last column, formulas derived by the builder from the same non-equilibrium bounce-back principle as the research lid formula; at the two outlet corner nodes next to the walls only two populations are unknown and they are fixed by the Zou-He moment constraints (rho = 1, rho u_y = 0); this replaces the benchmark do-nothing outflow',
       'Taylor-Green initial state: equilibrium with rho = 1 + p/c_s^2 from the analytic pressure, plus the first-order non-equilibrium part from the analytic velocity gradient'
     ],
     stability: 'tau > 1/2 (positive viscosity); in practice tau >~ 0.51-0.55 with BGK, otherwise high-Re runs blow up. ' +
