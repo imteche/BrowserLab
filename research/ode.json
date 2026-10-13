@@ -1,0 +1,285 @@
+{
+  "group": "ode",
+  "researcher": "ode-researcher",
+  "date": "2026-10-13",
+  "access_summary": "No full text reachable (all PDF hosts DNS-blocked); all source statements from web-search snippets, verified=false. Analytic references verified by research/test-kepler-exact.js.",
+  "methods": [
+    {
+      "id": "explicit-euler",
+      "name": "Explicit Euler",
+      "sources": [
+        "hlw2006",
+        "hairer1999notes",
+        "blanes2008splitting"
+      ],
+      "equations": [
+        {
+          "label": "Kepler Hamiltonian",
+          "tex": "H(p,q)=\\tfrac12|p|^2-\\frac{1}{|q|},\\quad \\dot q = p,\\ \\dot p = -\\frac{q}{|q|^3}",
+          "source": "hlw2006",
+          "location": "Sec. I.2.3 (secondary copy)"
+        },
+        {
+          "label": "explicit Euler step",
+          "tex": "q_{n+1}=q_n+h\\,p_n,\\quad p_{n+1}=p_n-h\\,\\frac{q_n}{|q_n|^3}",
+          "source": "hlw2006",
+          "location": "Sec. I.1 (classical; secondary copy)"
+        },
+        {
+          "label": "angular momentum change (derived)",
+          "tex": "L_{n+1}-L_n=h^2\\,p_n\\times F(q_n)",
+          "source": "hairer1999notes",
+          "location": "derived by researcher; snippet confirms L not conserved by explicit Euler only implicitly"
+        }
+      ],
+      "assumptions": [
+        "constant step size h",
+        "separable H = T(p)+U(q), mu = 1"
+      ],
+      "properties": {
+        "symplectic": false,
+        "time_reversible": false,
+        "order": 1,
+        "explicit": true,
+        "conserves_L": false,
+        "conserves_H": false
+      },
+      "stability": "No step size gives bounded energy: energy grows linearly (orbit spirals outward) for any h>0 on Kepler (hairer1999notes snippet; blanes2008splitting snippet). Practical accuracy at e=0.6 needs h <= 1e-4 even for one period (pilot).",
+      "reference_experiments": [
+        "kepler-hairer-figure-protocol",
+        "kepler-order-energy-explicit-euler",
+        "kepler-order-global-explicit-euler",
+        "kepler-growth-global-explicit-euler",
+        "kepler-growth-energy-explicit-euler",
+        "kepler-L-conservation"
+      ],
+      "missing": [
+        "All open copies (unige.ch, mcgill.ca, kit.edu, ucsd.edu, uvm.edu) were DNS/proxy-blocked; statements come from web-search snippets only (verified: false).",
+        "Exact explicit Euler step size in the Hairer figure is inferred (h=0.0005 from \"step size 100 times larger\"), not read."
+      ]
+    },
+    {
+      "id": "symplectic-euler",
+      "name": "Symplectic Euler (p implicit / q explicit variant)",
+      "sources": [
+        "hlw2006",
+        "hairer1999notes",
+        "hairer2010week2",
+        "blanes2008splitting"
+      ],
+      "equations": [
+        {
+          "label": "Kepler Hamiltonian",
+          "tex": "H(p,q)=\\tfrac12|p|^2-\\frac{1}{|q|},\\quad \\dot q = p,\\ \\dot p = -\\frac{q}{|q|^3}",
+          "source": "hlw2006",
+          "location": "Sec. I.2.3 (secondary copy)"
+        },
+        {
+          "label": "symplectic Euler step",
+          "tex": "p_{n+1}=p_n-h\\,\\nabla U(q_n),\\quad q_{n+1}=q_n+h\\,p_{n+1}",
+          "source": "hairer2010week2",
+          "location": "Lecture 2, symplectic Euler (snippet; explicit for separable H)"
+        },
+        {
+          "label": "general form",
+          "tex": "p_{n+1}=p_n-hH_q(p_{n+1},q_n),\\ q_{n+1}=q_n+hH_p(p_{n+1},q_n)",
+          "source": "hlw2006",
+          "location": "Sec. I.1.2 / VI.3 (recollection, unverified)"
+        }
+      ],
+      "assumptions": [
+        "constant step size h (symplectic long-time properties are lost with naive variable steps: hairer1997varsymp)",
+        "separable H"
+      ],
+      "properties": {
+        "symplectic": true,
+        "time_reversible": false,
+        "order": 1,
+        "explicit": true,
+        "conserves_L": true,
+        "conserves_H": false,
+        "note": "conjugate to Störmer–Verlet, so its global error at whole periods behaves like O(h^2 t) + bounded O(h) offset"
+      },
+      "stability": "Energy error O(h), bounded, no drift for nh up to exp(c/h) (backward error analysis; hlw2006 Thm IX.8.1 recollection). Orbit precesses clockwise (hairer1999notes snippet).",
+      "reference_experiments": [
+        "kepler-hairer-figure-protocol",
+        "kepler-order-energy-symplectic-euler",
+        "kepler-order-global-symplectic-euler",
+        "kepler-growth-global-symplectic-euler",
+        "kepler-growth-energy-symplectic-euler",
+        "kepler-L-conservation"
+      ],
+      "missing": [
+        "All open copies (unige.ch, mcgill.ca, kit.edu, ucsd.edu, uvm.edu) were DNS/proxy-blocked; statements come from web-search snippets only (verified: false).",
+        "Which symplectic Euler variant the Hairer figure uses was not seen; both variants have the same qualitative behaviour but precess in opposite senses (researcher expectation, not sourced)."
+      ]
+    },
+    {
+      "id": "stormer-verlet",
+      "name": "Störmer–Verlet (velocity Verlet / leapfrog)",
+      "sources": [
+        "hlw2003",
+        "hairer2010week2",
+        "hlw2006"
+      ],
+      "equations": [
+        {
+          "label": "Kepler Hamiltonian",
+          "tex": "H(p,q)=\\tfrac12|p|^2-\\frac{1}{|q|},\\quad \\dot q = p,\\ \\dot p = -\\frac{q}{|q|^3}",
+          "source": "hlw2006",
+          "location": "Sec. I.2.3 (secondary copy)"
+        },
+        {
+          "label": "velocity Verlet (one-step form)",
+          "tex": "p_{n+1/2}=p_n-\\tfrac h2\\nabla U(q_n),\\ q_{n+1}=q_n+h\\,p_{n+1/2},\\ p_{n+1}=p_{n+1/2}-\\tfrac h2\\nabla U(q_{n+1})",
+          "source": "hlw2003",
+          "location": "Sec. 1 (Newton–Störmer–Verlet–leapfrog method, p.400); exact equation number not verified"
+        },
+        {
+          "label": "two-step (Störmer) form",
+          "tex": "q_{n+1}-2q_n+q_{n-1}=-h^2\\nabla U(q_n)",
+          "source": "hlw2003",
+          "location": "Sec. 1 (Newton–Störmer–Verlet–leapfrog method, p.400); exact equation number not verified"
+        },
+        {
+          "label": "composition",
+          "tex": "\\Phi^{SV}_h=\\Phi^{SE*}_{h/2}\\circ\\Phi^{SE}_{h/2}",
+          "source": "hairer2010week2",
+          "location": "Lecture 2 (snippet: composition of the two symplectic Euler methods with step h/2)"
+        }
+      ],
+      "assumptions": [
+        "constant step size h",
+        "separable H"
+      ],
+      "properties": {
+        "symplectic": true,
+        "time_reversible": true,
+        "order": 2,
+        "explicit": true,
+        "conserves_L": true,
+        "conserves_H": false
+      },
+      "stability": "Energy error O(h^2) bounded over exponentially long times (hlw2003 Sec. 4-5, snippet); linear global error growth (hlw2003 abstract). For Kepler h must resolve pericentre passage; pilot shows clean asymptotics at h=1e-2, e=0.6.",
+      "reference_experiments": [
+        "kepler-order-energy-stormer-verlet",
+        "kepler-order-global-stormer-verlet",
+        "kepler-growth-global-stormer-verlet",
+        "kepler-growth-energy-stormer-verlet",
+        "kepler-L-conservation"
+      ],
+      "missing": [
+        "All open copies (unige.ch, mcgill.ca, kit.edu, ucsd.edu, uvm.edu) were DNS/proxy-blocked; statements come from web-search snippets only (verified: false).",
+        "Equation and theorem numbers in hlw2003 not verified; only section titles/pages from TOC snippet.",
+        "No numeric value from an hlw2003 Kepler figure could be read (step size of the Kepler figure unknown)."
+      ]
+    },
+    {
+      "id": "rk4",
+      "name": "Classical Runge–Kutta (RK4)",
+      "sources": [
+        "kutta1901",
+        "hairer1997varsymp"
+      ],
+      "equations": [
+        {
+          "label": "Kepler Hamiltonian",
+          "tex": "H(p,q)=\\tfrac12|p|^2-\\frac{1}{|q|},\\quad \\dot q = p,\\ \\dot p = -\\frac{q}{|q|^3}",
+          "source": "hlw2006",
+          "location": "Sec. I.2.3 (secondary copy)"
+        },
+        {
+          "label": "RK4 stages",
+          "tex": "k_1=f(y_n),\\ k_2=f(y_n+\\tfrac h2k_1),\\ k_3=f(y_n+\\tfrac h2k_2),\\ k_4=f(y_n+hk_3),\\ y_{n+1}=y_n+\\tfrac h6(k_1+2k_2+2k_3+k_4)",
+          "source": "kutta1901",
+          "location": "classical tableau (secondary/standard; original not consulted)"
+        }
+      ],
+      "assumptions": [
+        "y=(q,p), f(y)=(p,-q/|q|^3)",
+        "constant step size"
+      ],
+      "properties": {
+        "symplectic": false,
+        "time_reversible": false,
+        "order": 4,
+        "explicit": true,
+        "conserves_L": false,
+        "conserves_H": false
+      },
+      "stability": "Linear stability interval on imaginary axis |h lambda| <= 2.83 (standard, not sourced here). Energy drifts O(h^4 t); global error grows quadratically (hairer1997varsymp snippet, by contrast with symplectic). Pre-asymptotic at h >= 2.5e-3 for e=0.6 (pilot).",
+      "reference_experiments": [
+        "kepler-order-energy-rk4",
+        "kepler-order-global-rk4",
+        "kepler-growth-global-rk4",
+        "kepler-growth-energy-rk4",
+        "kepler-L-conservation"
+      ],
+      "missing": [
+        "RK4 is not in the Hairer Kepler figures seen via snippets; its expectations are from general theory.",
+        "Kutta 1901 original not consulted."
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "kepler",
+      "probes": [
+        "state",
+        "invariants"
+      ],
+      "initial_conditions": {
+        "q": [
+          "1-e",
+          0
+        ],
+        "p": [
+          0,
+          "sqrt((1+e)/(1-e))"
+        ],
+        "source": "hlw2006",
+        "location": "Sec. I.2.3 (secondary copy)"
+      },
+      "default_params": {
+        "e": 0.6,
+        "h": 0.01
+      },
+      "suggested_params": [
+        {
+          "key": "e",
+          "label": "Eccentricity",
+          "min": 0,
+          "max": 0.9,
+          "step": 0.05,
+          "value": 0.6,
+          "live": false
+        },
+        {
+          "key": "h",
+          "label": "Step size h",
+          "min": 0.0005,
+          "max": 0.1,
+          "step": 0.0005,
+          "value": 0.01,
+          "live": false
+        }
+      ],
+      "invariants": {
+        "H0": -0.5,
+        "L0": "sqrt(1-e^2) (0.8 at e=0.6)",
+        "runge_lenz": "(e,0)",
+        "period": "2*pi"
+      },
+      "references": [
+        "kepler-exact-solution",
+        "kepler-H0",
+        "kepler-L0",
+        "kepler-runge-lenz",
+        "kepler-period",
+        "kepler-hairer-figure-protocol",
+        "kepler-L-conservation"
+      ],
+      "notes": "Use Float64Array for (q,p). Global error must be measured against kepler-exact-solution at t_N = N h. Sample symplectic Euler order tests at half periods (conjugacy pitfall)."
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrowserLab</title>
+<meta name="description" content="Interactive lab for rerunning numerical experiments from open research, with live verification status.">
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<link rel="stylesheet" href="css/lab.css">
+</head>
+<body>
+<header class="bar">
+  <div class="mark">Browser<b>Lab</b></div>
+  <nav class="tabs-top" role="tablist">
+    <button role="tab" data-page="lab" aria-selected="true">Lab</button>
+    <button role="tab" data-page="matrix" aria-selected="false">Verification matrix</button>
+    <button role="tab" data-page="graph" aria-selected="false">Build graph</button>
+    <button role="tab" data-page="sources" aria-selected="false">Sources</button>
+  </nav>
+  <div class="sep"></div>
+  <div class="field-inline lab-only"><label for="sel-scene">Scene</label><select id="sel-scene"></select></div>
+  <div class="field-inline lab-only"><label for="sel-exp">Experiment</label><select id="sel-exp"></select></div>
+  <div class="field-inline lab-only"><label for="sel-method">Method</label><select id="sel-method"></select></div>
+  <div class="spacer"></div>
+  <div class="field-inline lab-only">
+    <button class="btn primary" id="btn-run" aria-pressed="false">Run</button>
+    <button class="btn" id="btn-step">Step</button>
+    <button class="btn" id="btn-reset">Reset</button>
+    <label for="sel-spf">Steps/frame</label>
+    <select id="sel-spf"><option>1</option><option>2</option><option selected>5</option><option>10</option><option>25</option><option>50</option><option>100</option><option>250</option></select>
+  </div>
+</header>
+
+<main>
+<section class="page on" id="page-lab" style="padding:0;max-width:none">
+<div class="lab">
+  <aside class="col" id="col-left">
+    <div class="sec" id="sec-exp"></div>
+    <div class="sec"><h2>Parameters <span class="pending" id="param-pending"></span></h2><div id="params"></div></div>
+    <div class="sec" id="sec-gaps"></div>
+    <div class="sec" id="sec-missing"></div>
+  </aside>
+
+  <section class="col stage">
+    <div class="viewbar">
+      <span>t = <span class="clock" id="clock">0</span></span>
+      <span>steps <span class="clock" id="nsteps">0</span></span>
+      <span id="fps"></span>
+      <span class="spacer"></span>
+      <label for="sel-field">View</label><select id="sel-field"></select>
+    </div>
+    <div class="banner" id="banner"></div>
+    <div class="canvas-wrap">
+      <canvas class="main" id="cv"></canvas>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="plots" id="plots"></div>
+  </section>
+
+  <aside class="col" id="col-right">
+    <div class="sec"><h2>Live measurements <span class="n" id="m-time"></span></h2><table class="t metrics-table" id="metrics"></table></div>
+    <div class="rtabs" role="tablist">
+      <button data-r="eq" aria-selected="true">Equations</button>
+      <button data-r="asm" aria-selected="false">Assumptions</button>
+      <button data-r="code" aria-selected="false">Code</button>
+      <button data-r="ver" aria-selected="false">Checks</button>
+      <button data-r="src" aria-selected="false">Sources</button>
+    </div>
+    <div class="rpane on sec" id="r-eq"></div>
+    <div class="rpane sec" id="r-asm"></div>
+    <div class="rpane" id="r-code"></div>
+    <div class="rpane sec" id="r-ver"></div>
+    <div class="rpane sec" id="r-src"></div>
+  </aside>
+</div>
+</section>
+
+<section class="page" id="page-matrix"></section>
+<section class="page" id="page-graph"></section>
+<section class="page" id="page-sources"></section>
+</main>
+
+<script src="vendor/katex/katex.min.js"></script>
+<!--SCRIPTS-->
+<script src="js/ui.js"></script>
+</body>
+</html>
