@@ -1,0 +1,160 @@
+{
+  "group": "ptc",
+  "scope": "Particle / hybrid fluid methods (WCSPH, PBF, MLS-MPM), scene dam-break, SPH on taylor-green",
+  "date": "2026-10-13",
+  "methods": [
+    {
+      "id": "wcsph",
+      "name": "Weakly compressible SPH (Tait EOS, Monaghan artificial viscosity)",
+      "sources": ["monaghan1994", "becker2007", "monaghan2005", "pysph-wcsph", "gomezgesteira2010", "pysph-dbexp", "splishsplash"],
+      "equations": [
+        { "label": "Density summation", "tex": "\\rho_a = \\sum_b m_b W(\\mathbf{r}_a-\\mathbf{r}_b, h)", "source": "monaghan2005", "location": "standard SPH summation (form not verified against text)", "verified": false },
+        { "label": "Continuity (alternative to summation; used by PySPH WCSPH)", "tex": "\\frac{d\\rho_a}{dt} = \\sum_b m_b\\, \\mathbf{v}_{ab}\\cdot\\nabla_a W_{ab}", "source": "pysph-wcsph", "location": "pysph/sph/basic_equations.py ContinuityEquation docstring", "verified": true },
+        { "label": "Tait equation of state", "tex": "p_a = \\frac{c_0^2\\rho_0}{\\gamma}\\left[\\left(\\frac{\\rho_a}{\\rho_0}\\right)^{\\gamma}-1\\right],\\ \\gamma=7", "source": "pysph-wcsph", "location": "pysph/sph/wc/basic.py TaitEOS docstring (cites Cole 1948, Batchelor, Monaghan 2005); same form in splishsplash TimeStepWCSPH.cpp l.106 with stiffness k=B", "verified": true },
+        { "label": "Momentum with artificial viscosity", "tex": "\\frac{d\\mathbf{v}_a}{dt} = -\\sum_b m_b\\left(\\frac{p_b}{\\rho_b^2}+\\frac{p_a}{\\rho_a^2}+\\Pi_{ab}\\right)\\nabla_a W_{ab} + \\mathbf{g}", "source": "pysph-wcsph", "location": "pysph/sph/wc/basic.py MomentumEquation docstring (cites Monaghan 1992)", "verified": true },
+        { "label": "Monaghan artificial viscosity", "tex": "\\Pi_{ab}=\\begin{cases}\\frac{-\\alpha\\bar c_{ab}\\mu_{ab}+\\beta\\mu_{ab}^2}{\\bar\\rho_{ab}} & \\mathbf{v}_{ab}\\cdot\\mathbf{r}_{ab}<0\\\\0&\\text{otherwise}\\end{cases},\\quad \\mu_{ab}=\\frac{h\\,\\mathbf{v}_{ab}\\cdot\\mathbf{r}_{ab}}{r_{ab}^2+\\eta^2}", "source": "pysph-wcsph", "location": "pysph/sph/wc/basic.py MomentumEquation docstring; eta^2 ~ 0.01h^2 conventional (not verified)", "verified": true },
+        { "label": "XSPH position update (optional)", "tex": "\\frac{d\\mathbf{r}_a}{dt}=\\mathbf{v}_a-\\epsilon\\sum_b m_b\\frac{\\mathbf{v}_{ab}}{\\bar\\rho_{ab}}W_{ab},\\ \\epsilon=0.5\\text{ (PySPH default)}", "source": "pysph-wcsph", "location": "pysph/sph/basic_equations.py XSPHCorrection docstring and default eps=0.5", "verified": true },
+        { "label": "Cubic spline kernel (2D)", "tex": "W(q)=\\frac{10}{7\\pi h^2}\\begin{cases}1-\\tfrac32q^2+\\tfrac34q^3&0\\le q<1\\\\ \\tfrac14(2-q)^3&1\\le q<2\\\\0&q\\ge2\\end{cases},\\ q=r/h", "source": "monaghan2005", "location": "standard M4 cubic spline; not verified against text in this session", "verified": false },
+        { "label": "Sound-speed / compressibility condition", "tex": "\\frac{|\\Delta\\rho|}{\\rho_0}\\sim\\frac{|\\mathbf{v}|^2}{c_s^2}\\le\\eta=0.01\\ \\Rightarrow\\ c_s\\ge10\\,v_{max}", "source": "becker2007", "location": "Sec. on Tait EOS (search snippet; equation number unverified)", "verified": false }
+      ],
+      "assumptions": [
+        "Fluid treated as slightly compressible; density error ~ Ma^2 must stay <~1% (Ma = v_max/c0 <= 0.1)",
+        "Inviscid in the dam-break benchmark; artificial viscosity supplies dissipation and stability",
+        "Free surface needs no explicit BC (pressure clamped >= 0 or negative pressures allowed per scheme); summation density underestimates near surface",
+        "Equal particle masses m = rho0 * dx^2 (2D)"
+      ],
+      "discretization": "Lagrangian particles on initial lattice spacing dx; kernel support 2h with h = 1.2-1.3 dx (PySPH dam_break_2d: hdx=1.3, Wendland quintic); explicit time integration (PySPH: predict-evaluate-correct, WCSPH; symplectic/leapfrog also common).",
+      "boundary_conditions": "Solid walls: layers of fixed boundary particles (PySPH dam_break_2d: 2 layers, whose density is evolved/EOS-computed - dynamic boundary particles as in Gomez-Gesteira 2010) or repulsive forces (Monaghan 1994, not verified). Free surface: implicit. Taylor-Green: periodic, no walls.",
+      "stability": "c0 >= 10 Umax (Umax ~ sqrt(2 g H) for dam break; PySPH uses c0 = 10*sqrt(2*9.81*2) = 62.6 m/s for H = 2 m). Acoustic CFL: PySPH dam_break_2d dt = 0.125 h/c0 (with adaptive_timestep); taylor_green dt = min(0.25 h/(c0+U), 0.125 h^2/nu). EDAC manuscript: dt = min(h/(4(c_s+|U|max)), h^2/(8 nu)). Force condition dt <= 0.25 sqrt(h/|f|max) (Becker & Teschner via secondary, unverified).",
+      "parameters": [
+        { "key": "gamma", "value": 7, "source": "pysph-dbexp", "note": "dam_break_2d.py" },
+        { "key": "c0", "value": "10*sqrt(2 g H_column)", "source": "pysph-dbexp" },
+        { "key": "alpha (artificial viscosity)", "value": 0.1, "source": "pysph-dbexp", "note": "beta = 0" },
+        { "key": "h/dx", "value": 1.3, "source": "pysph-dbexp" },
+        { "key": "dx", "value": 0.03, "unit": "m", "source": "pysph-dbexp", "note": "1 m x 2 m column -> ~2200 fluid particles" },
+        { "key": "rho0", "value": 1000, "unit": "kg/m^3", "source": "pysph-dbexp" },
+        { "key": "dt", "value": "0.125 h / c0", "source": "pysph-dbexp" },
+        { "key": "tank", "value": "4 m x 4 m, column 1 m wide x 2 m high, g = 9.81", "source": "pysph-dbexp", "note": "after Gomez-Gesteira et al. 2010" },
+        { "key": "eta (density tolerance)", "value": 0.01, "source": "becker2007", "note": "search snippet" },
+        { "key": "stiffness (SPlisHSPlasH default)", "value": 50, "source": "splishsplash", "note": "B in p = B((rho/rho0)^7 - 1), exponent 7; units of its scenes" }
+      ],
+      "reference_experiments": [
+        { "scene": "dam-break", "refs": ["dam-break-mm-front-lethe", "dam-break-mm-front-a225", "dam-break-mm-front-a1125", "dam-break-ritter-front-bound"], "probe": "front", "note": "Martin & Moyce surge front; PySPH dam_break_2d plots max(x)/L vs t*sqrt(2g/L)" },
+        { "scene": "taylor-green", "refs": [], "probe": "kinetic_energy, l2_error", "note": "Analytic solution (owned by the TG researcher). SPH-specific error expectations are qualitative only, see scenes[].taylor-green" }
+      ],
+      "missing": [
+        "Monaghan 1994 and Becker & Teschner 2007 full texts not read (hosts blocked); equation numbers and their specific constants (B=200 rho g H/gamma, lambda_v, artificial-viscosity form of BT07) unverified",
+        "Cubic-spline normalisation not verified against Monaghan text"
+      ]
+    },
+    {
+      "id": "pbf",
+      "name": "Position Based Fluids (Macklin & Mueller 2013)",
+      "sources": ["macklin2013", "splishsplash", "taichi-pbf2d"],
+      "equations": [
+        { "label": "Density constraint", "tex": "C_i(\\mathbf{p}_1..\\mathbf{p}_n)=\\frac{\\rho_i}{\\rho_0}-1,\\quad \\rho_i=\\sum_j m_j W_{\\text{poly6}}(\\mathbf{p}_i-\\mathbf{p}_j,h)", "source": "macklin2013", "location": "Sec. 3 'Enforcing incompressibility' (search snippet; eq. no. unverified)", "verified": false },
+        { "label": "Constraint gradient", "tex": "\\nabla_{\\mathbf{p}_k}C_i=\\frac{1}{\\rho_0}\\begin{cases}\\sum_j\\nabla_{\\mathbf{p}_k}W(\\mathbf{p}_i-\\mathbf{p}_j,h)&k=i\\\\-\\nabla_{\\mathbf{p}_k}W(\\mathbf{p}_i-\\mathbf{p}_k,h)&k=j\\end{cases}", "source": "taichi-pbf2d", "location": "pbf2d.py substep: grad_i / grad_j accumulation with spiky gradient; matches Macklin 2013 Sec. 3", "verified": true },
+        { "label": "Lagrange multiplier with relaxation", "tex": "\\lambda_i=-\\frac{C_i}{\\sum_k|\\nabla_{\\mathbf{p}_k}C_i|^2+\\varepsilon}", "source": "splishsplash", "location": "TimeStepPBF.cpp l.340 (eps=1e-6); taichi-pbf2d lambda_epsilon=100 (its units)", "verified": true },
+        { "label": "Position correction with artificial pressure", "tex": "\\Delta\\mathbf{p}_i=\\frac{1}{\\rho_0}\\sum_j\\left(\\lambda_i+\\lambda_j+s_{corr}\\right)\\nabla W_{\\text{spiky}}(\\mathbf{p}_i-\\mathbf{p}_j,h)", "source": "taichi-pbf2d", "location": "pbf2d.py position_deltas loop; cross-check Macklin 2013 Sec. 4", "verified": true },
+        { "label": "Tensile-instability correction", "tex": "s_{corr}=-k\\left(\\frac{W(\\mathbf{p}_i-\\mathbf{p}_j,h)}{W(\\Delta\\mathbf{q},h)}\\right)^n,\\ |\\Delta\\mathbf{q}|=0.1h..0.3h,\\ k=0.1,\\ n=4", "source": "macklin2013", "location": "Sec. 4 'Tensile instability' (search snippet quoting the paper)", "verified": false },
+        { "label": "XSPH viscosity", "tex": "\\mathbf{v}_i^{new}=\\mathbf{v}_i+c\\sum_j\\mathbf{v}_{ij}W(\\mathbf{p}_i-\\mathbf{p}_j,h),\\ c=0.01", "source": "macklin2013", "location": "Sec. 5 'Vorticity confinement and viscosity' (snippet: c typically 0.01)", "verified": false },
+        { "label": "Vorticity confinement", "tex": "\\boldsymbol\\omega_i=\\sum_j\\mathbf{v}_{ij}\\times\\nabla_{\\mathbf{p}_j}W_{ij},\\ \\mathbf{f}_i^{vort}=\\epsilon\\,(\\mathbf{N}\\times\\boldsymbol\\omega_i),\\ \\mathbf{N}=\\frac{\\eta}{|\\eta|},\\ \\eta=\\nabla|\\boldsymbol\\omega|_i", "source": "macklin2013", "location": "Sec. 5 (form recalled; snippet confirms vorticity confinement as velocity post-process; not verified)", "verified": false },
+        { "label": "Kernels", "tex": "W_{\\text{poly6}}=\\frac{315}{64\\pi h^9}(h^2-r^2)^3,\\quad \\nabla W_{\\text{spiky}}=-\\frac{45}{\\pi h^6}(h-r)^2\\hat{\\mathbf{r}}", "source": "taichi-pbf2d", "location": "pbf2d.py poly6_factor, spiky_grad_factor (3D normalisations used in its 2D demo)", "verified": true }
+      ],
+      "assumptions": [
+        "Incompressibility enforced as position constraints solved by a few Jacobi iterations per step (not converged: residual density error remains)",
+        "Velocity derived from position change v = (x* - x)/dt (first-order); damping from XSPH; energy loss partly restored by vorticity confinement",
+        "Equal masses; density computed with poly6, gradients with spiky kernel",
+        "Graphics method: no physical sound speed; viscosity is numerical, not a Reynolds-number model"
+      ],
+      "discretization": "Predict x* = x + dt(v + dt f_ext); neighbour search; for iter in 1..N: compute lambda_i, Delta p_i (with s_corr), collision/boundary projection, x* += Delta p; v = (x*-x)/dt; apply vorticity confinement + XSPH; x = x*. Taichi pbf2d: 5 iterations, dt = 1/20 in its scaled units; Macklin reports 2-4 iterations typical (unverified).",
+      "boundary_conditions": "Walls handled by clamping/projecting predicted positions into the domain (taichi-pbf2d confine_position_to_boundary with tiny random jitter); boundary particles optional (Akinci-style in SPlisHSPlasH).",
+      "stability": "Unconditionally stable in the PBD sense (positions projected), but accuracy degrades with large dt: compression grows if iterations are too few. Keep max displacement per step < ~h/2 (common practice, not from the paper). epsilon (CFM relaxation) prevents division by zero for isolated particles.",
+      "parameters": [
+        { "key": "|dq|/h", "value": "0.1-0.3", "source": "macklin2013" },
+        { "key": "k (s_corr)", "value": 0.1, "source": "macklin2013", "note": "taichi-pbf2d uses 0.001 with deltaQ=0.3h; scale-dependent" },
+        { "key": "n (s_corr)", "value": 4, "source": "macklin2013" },
+        { "key": "c (XSPH)", "value": 0.01, "source": "macklin2013" },
+        { "key": "iterations", "value": 5, "source": "taichi-pbf2d" },
+        { "key": "epsilon", "value": "100 (taichi-pbf2d units) / 1e-6 (SPlisHSPlasH)", "source": "taichi-pbf2d" },
+        { "key": "h", "value": "1.1 with particle radius 0.3 in sim units", "source": "taichi-pbf2d" }
+      ],
+      "reference_experiments": [
+        { "scene": "dam-break", "refs": ["dam-break-mm-front-lethe", "dam-break-mm-front-a225", "dam-break-ritter-front-bound"], "probe": "front", "note": "No source found that validates PBF quantitatively against Martin & Moyce; PBF is expected to show extra damping (XSPH, under-converged iterations)" }
+      ],
+      "missing": [
+        "Macklin & Mueller full text not read (author host blocked); equation numbers, vorticity-confinement epsilon, typical dt and iteration counts unverified",
+        "No published quantitative dam-break validation of PBF located"
+      ]
+    },
+    {
+      "id": "mls-mpm",
+      "name": "MLS-MPM with APIC transfer, weakly compressible fluid (Hu et al. 2018; mpm88)",
+      "sources": ["hu2018mlsmpm", "taichi-mpm88", "mlsmpm88-cpp"],
+      "equations": [
+        { "label": "Quadratic B-spline weights", "tex": "f=\\mathbf{x}_p/\\Delta x-\\lfloor\\mathbf{x}_p/\\Delta x-0.5\\rfloor,\\ w_0=\\tfrac12(1.5-f)^2,\\ w_1=0.75-(f-1)^2,\\ w_2=\\tfrac12(f-0.5)^2,\\ w_{ij}=w_i^x w_j^y", "source": "taichi-mpm88", "location": "mpm88.py substep() P2G", "verified": true },
+        { "label": "P2G (MLS-MPM fused APIC momentum + stress)", "tex": "m_i\\mathrel{+}=w_{ip}m_p,\\quad (m\\mathbf{v})_i\\mathrel{+}=w_{ip}\\left[m_p\\mathbf{v}_p+\\left(m_p\\mathbf{C}_p-\\Delta t\\,V_p\\,\\tfrac{4}{\\Delta x^2}\\,E(J_p-1)\\mathbf{I}\\right)(\\mathbf{x}_i-\\mathbf{x}_p)\\right]", "source": "taichi-mpm88", "location": "mpm88.py: stress = -dt*4*E*p_vol*(J-1)/dx**2; affine = diag(stress) + p_mass*C; general form (P F^T) in mlsmpm88-cpp 'Eqn 29' of mls-mpm-cpic", "verified": true },
+        { "label": "MLS-MPM inertia tensor for quadratic B-spline", "tex": "\\mathbf{D}_p^{-1}=\\frac{4}{\\Delta x^2}\\mathbf{I}", "source": "mlsmpm88-cpp", "location": "mls-mpm88-explained.cpp 'Dinv = 4*inv_dx*inv_dx' (comment: mpm.graphics, paragraph after Eqn. 176)", "verified": true },
+        { "label": "Grid update", "tex": "\\mathbf{v}_i=\\frac{(m\\mathbf{v})_i}{m_i}+\\Delta t\\,\\mathbf{g};\\ \\text{wall cells: } v_n\\leftarrow\\min(v_n,0)\\ \\text{(outward component zeroed)}", "source": "taichi-mpm88", "location": "mpm88.py grid loop, bound = 3 cells", "verified": true },
+        { "label": "G2P (APIC)", "tex": "\\mathbf{v}_p=\\sum_i w_{ip}\\mathbf{v}_i,\\quad \\mathbf{C}_p=\\frac{4}{\\Delta x^2}\\sum_i w_{ip}\\mathbf{v}_i(\\mathbf{x}_i-\\mathbf{x}_p)^T", "source": "taichi-mpm88", "location": "mpm88.py G2P: new_C += 4*weight*g_v.outer_product(dpos)/dx**2", "verified": true },
+        { "label": "Advection and volume ratio", "tex": "\\mathbf{x}_p\\mathrel{+}=\\Delta t\\,\\mathbf{v}_p,\\quad J_p\\leftarrow J_p\\,(1+\\Delta t\\,\\mathrm{tr}\\,\\mathbf{C}_p)", "source": "taichi-mpm88", "location": "mpm88.py end of substep()", "verified": true },
+        { "label": "Fluid EOS implied by mpm88", "tex": "p=-E\\,(J-1)\\ (\\text{bulk modulus }E),\\quad c=\\sqrt{E/\\rho}", "source": "taichi-mpm88", "location": "derived from the stress term above (interpretation, not a quoted equation)", "verified": false }
+      ],
+      "assumptions": [
+        "Weakly compressible, inviscid fluid; only the scalar volume ratio J is tracked (no deviatoric stress)",
+        "Particles carry mass, velocity, affine matrix C (APIC) and J; grid is a scratch-pad rebuilt each step",
+        "MLS shape-function gradient replaced by the APIC/MLS affine form so no kernel gradients are needed (Hu et al. 2018 main claim)"
+      ],
+      "discretization": "Uniform background grid n_grid^2 on [0,1]^2 (mpm88: 128^2, dx=1/128), ~4 particles per cell initially (p_vol=(dx/2)^2), explicit symplectic-Euler style step P2G -> grid update -> G2P.",
+      "boundary_conditions": "Grid-node velocity: outward normal component set to zero within `bound` = 3 cells of each wall (separating slip). mls-mpm88-cpp uses sticky walls on 3 sides and separating floor.",
+      "stability": "Explicit; dt limited by CFL on grid with sound speed: dt <= C dx/(|v|max + c), c = sqrt(E/rho). mpm88: c = sqrt(400/1) = 20, dt*c/dx = 2e-4*20*128 = 0.51 (derived here, not stated in source). Particles must not leave the 3x3 stencil: |v| dt < dx.",
+      "parameters": [
+        { "key": "n_grid", "value": 128, "source": "taichi-mpm88" },
+        { "key": "n_particles", "value": 8192, "source": "taichi-mpm88" },
+        { "key": "dt", "value": 0.0002, "source": "taichi-mpm88" },
+        { "key": "E (bulk modulus)", "value": 400, "source": "taichi-mpm88" },
+        { "key": "p_rho", "value": 1, "source": "taichi-mpm88" },
+        { "key": "p_vol", "value": "(dx*0.5)^2", "source": "taichi-mpm88" },
+        { "key": "gravity", "value": 9.8, "source": "taichi-mpm88" },
+        { "key": "bound", "value": 3, "unit": "cells", "source": "taichi-mpm88" }
+      ],
+      "reference_experiments": [
+        { "scene": "dam-break", "refs": ["dam-break-mm-front-lethe", "dam-break-mm-front-a225", "dam-break-ritter-front-bound"], "probe": "front", "note": "No published MLS-MPM vs Martin & Moyce comparison located; mpm88 setting (unit box, g=9.8) must be rescaled: choose a so that column fits, then Z = x/a, T = t sqrt(2g/a)" }
+      ],
+      "missing": [
+        "Hu et al. 2018 full text and supplement not read; paper equation numbers unverified (equations taken from authors' open code)",
+        "No quantitative MLS-MPM dam-break validation located"
+      ]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "dam-break",
+      "setup": "Column width a, height 2a (n^2 = 2), dry horizontal floor, wall at x=0 behind the column, released at t=0. Martin & Moyce: a = 2.25 in (57.15 mm) and 1.125 in; Lethe: a=3.5, g=1; PySPH (Gomez-Gesteira 2010 setup): a=1 m, H=2 m, tank 4 m x 4 m, g=9.81.",
+      "conventions": "Z = x_front/a, T = t*sqrt(2g/a) (Martin & Moyce, PySPH, Lethe). T_K = t*sqrt(g/a) = T/sqrt(2). T_H = t*sqrt(g/H) with H=2a equals T/2. Front taken as max x of fluid particles (PySPH) or max x with phase>0.5 (Lethe).",
+      "references": ["dam-break-mm-front-lethe", "dam-break-mm-front-a225", "dam-break-mm-front-a1125", "dam-break-ko-front", "dam-break-ritter-front-bound"],
+      "tolerance": "max |Z_sim - Z_ref| <= 0.25 for T in (0,3] after allowing one time shift dT in [0,0.25] (Lethe applies +0.175); report shift. Late time compare to a225 series up to tank end.",
+      "cross_check": "Lethe copy vs PySPH mm_data_2 (both a=2.25 in): |dZ| = 0.011, 0.006, 0.065, 0.079 at T = 0.83, 1.22, 2.00, 2.55. PySPH mm_data_1 (a=1.125 in) vs Lethe: |dZ| <= 0.074. PySPH ko_data vs Lethe: up to 0.31 (T=2.72).",
+      "missing": [
+        "Residual column height H/2a vs T (Martin & Moyce Table/Fig.) - no open copy found",
+        "Original Martin & Moyce tables not read; scale of gate-opening lag not quantified by an open source (only Lethe's empirical 0.175 shift)"
+      ]
+    },
+    {
+      "id": "taylor-green",
+      "setup_sph": "Unit periodic box, u=-U e^{bt}cos(2 pi x)sin(2 pi y), v=U e^{bt}sin(2 pi x)cos(2 pi y), p=-U^2 e^{2bt}(cos 4 pi x+cos 4 pi y)/4, b=-8 pi^2/Re, Re=100, U=1, c0=10U, nx=50 (PySPH default), quintic spline, h=dx (EDAC) or hdx*dx.",
+      "sources": ["pysph-tg", "ramachandran2019edac", "negi2022convergence", "adami2013"],
+      "findings": [
+        "Kinetic energy decays as exp(2bt) = exp(-16 pi^2 t/Re) for this normalisation (from exact solution, pysph-tg)",
+        "Uniform (unperturbed) initial lattice gives ~10x larger error than relaxed init in Adami 2013 (as reported by ramachandran2019edac); EDAC uses random perturbation of max dx/5",
+        "EDAC(TVF) L1 velocity error ~4x below TVF at nx=50, Re=100 (ramachandran2019edac text)",
+        "Standard WCSPH is the worst of the compared schemes on TG (ramachandran2019edac Fig. tgv:l1_error, qualitative)",
+        "Classical WCSPH/TVF do not converge with resolution at Re=100 (negi2022convergence; ramachandran2019edac)"
+      ],
+      "missing": [
+        "No numeric SPH TG error values obtained: figure data not in the manuscript repos; Adami 2013 not open",
+        "Suggested tolerance for SPH TG therefore cannot be source-backed; reviewers should treat SPH TG as qualitative (decay-rate trend) unless the analytic reference alone is used"
+      ]
+    }
+  ]
+}

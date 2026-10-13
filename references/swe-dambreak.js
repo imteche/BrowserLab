@@ -133,9 +133,9 @@
     params: { t: 6, x: [0, 10], alt: UNIT },
     tolerance: {
       metric: 'L1-depth-relative',
-      value: { 'N=200': 0.06, 'N=400': 0.04 },
-      rationale: 'sum|h_num-h_exact|dx / sum h_exact dx at t_end. No published L1 table retrieved; band set at ~1.5x the researcher\'s scratch ' +
-        'HLL (Einfeldt speeds, first order, CFL 0.9) measurement (research/hyp.md). The wet/dry front is smeared and lags for first-order schemes; ' +
+      value: { 'first-order N=200': 0.017, 'first-order N=400': 0.010, 'second-order N=200': 0.009, 'second-order N=400': 0.0045 },
+      rationale: 'sum|h_num-h_exact|dx / sum h_exact dx at t_end. No published L1 table retrieved; bands ~1.4x the researcher\'s scratch measurements ' +
+        '(HLL/Einfeldt first order: 1.146e-2 @N=200, 6.771e-3 @N=400; MUSCL-Hancock+minmod+HLL: 6.221e-3, 3.118e-3; CFL 0.9; SWASHES config, unit config within 5%). The wet/dry front is smeared; ' +
         'front position checks should use a threshold (e.g. h > 1e-6 hl) with a band of several cells, not the exact front 2 sqrt(g hl) t.'
     }
   });
@@ -150,9 +150,9 @@
     params: { t: 6, x: [0, 10], alt: UNIT },
     tolerance: {
       metric: 'L1-depth-relative',
-      value: { 'first-order N=200': 0.03, 'first-order N=400': 0.02, 'second-order N=200': 0.015, 'second-order N=400': 0.008 },
-      rationale: 'Relative L1 depth error at t_end. No published L1 table retrieved; bands ~1.5x researcher scratch measurements (HLL first order; ' +
-        'MUSCL-Hancock+minmod+HLL second order), research/hyp.md.'
+      value: { 'first-order N=200': 0.0126, 'first-order N=400': 0.0073, 'second-order N=200': 0.0052, 'second-order N=400': 0.0026 },
+      rationale: 'Relative L1 depth error at t_end. No published L1 table retrieved; bands ~1.4x the worse of the two configs in researcher scratch runs ' +
+        '(HLL first order: SWASHES 7.548e-3/4.326e-3, unit 8.998e-3/5.225e-3 at N=200/400; MUSCL-Hancock+minmod+HLL: SWASHES 3.212e-3/1.673e-3, unit 3.713e-3/1.803e-3), research/hyp.md.'
     }
   });
 

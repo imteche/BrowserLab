@@ -24,6 +24,7 @@ const scripts = [
   'js/core.js', 'js/scenes.js',
   ...js('references', f => f.startsWith('sources-')),
   ...js('references', f => !f.startsWith('sources-')),
+  'js/overlays.js',
   ...js('methods'),
   ...js('verification/results'),
   ...(fs.existsSync(path.join(ROOT, 'js/graph-data.js')) ? ['js/graph-data.js'] : [])

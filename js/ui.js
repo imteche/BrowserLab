@@ -144,12 +144,12 @@
         if (r.kind === 'table') {
           var ix = r.columns.indexOf(o.x), iy = r.columns.indexOf(o.y);
           out.push({ label: r.label || ('ref: ' + (LAB.sources[r.source] ? shortCite(LAB.sources[r.source]) : r.source)), x: r.rows.map(function (row) { return row[ix]; }), y: r.rows.map(function (row) { return row[iy]; }), color: C.ref, points: true });
-        } else if (r.kind === 'function' && typeof r.fn === 'function') {
+        } else if (r.kind === 'function' && (typeof r.fn === 'function' || o.eval)) {
           var xs = [], ys = [], n = 400, lo, hi;
           if (o.sample === 't') { lo = 0; hi = Math.max(t, 1e-6) * (o.ahead || 1.0); }
           else { lo = o.range ? o.range[0] : Math.min.apply(null, xsSim); hi = o.range ? o.range[1] : Math.max.apply(null, xsSim); }
           for (var i = 0; i <= n; i++) {
-            var xv = lo + (hi - lo) * i / n, v = o.sample === 't' ? r.fn(xv, S.params) : r.fn(xv, t, S.params);
+            var xv = lo + (hi - lo) * i / n, v = o.eval ? o.eval(xv, t, S.params) : o.sample === 't' ? r.fn(xv, S.params) : r.fn(xv, t, S.params);
             if (o.field && v) v = v[o.field];
             xs.push(xv); ys.push(o.transform ? o.transform(v, S) : v);
           }

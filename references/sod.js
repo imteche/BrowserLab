@@ -146,8 +146,9 @@
                'second-order N=100': 0.0095, 'second-order N=200': 0.0052, 'second-order N=400': 0.0029 },
       rationale: 'L1 norm of rho_num - rho_exact over [0,1] at t=0.2 (cell-average of the method vs exact value at cell centre, sum |.|*dx). ' +
         'NO open source with tabulated Sod L1 errors could be retrieved (see research/hyp.md). Values are BrowserLab engineering bands ' +
-        'set at ~1.3-1.5x the errors measured with the researcher\'s scratch implementations (Godunov-HLLC first order; MUSCL-Hancock + minmod + HLLC, CFL 0.9): ' +
-        'see research/hyp.md "Calibration runs". Lax-Friedrichs is far more diffusive; use the separate lax-friedrichs band.'
+        'set at ~1.4x the errors measured with the researcher\'s scratch implementations (Godunov-HLLC first order: 1.475e-2/9.366e-3/5.970e-3 at N=100/200/400; ' +
+        'MUSCL-Hancock + minmod on conservative variables + HLLC: 6.581e-3/3.581e-3/1.997e-3; CFL 0.9; `node research/test-exact-solvers.js --calibrate`). ' +
+        'Observed L1 orders ~0.65 (first order) and ~0.85 (second order): below 1 because of the discontinuities. Lax-Friedrichs is far more diffusive; use the separate lax-friedrichs band.'
     }
   });
 
@@ -160,9 +161,9 @@
     fn: exactSod,
     tolerance: {
       metric: 'L1-density',
-      value: { 'N=100': 0.06, 'N=200': 0.04, 'N=400': 0.026 },
+      value: { 'N=100': 0.040, 'N=200': 0.028, 'N=400': 0.019 },
       rationale: 'Classic Lax-Friedrichs (U_i^{n+1} = (U_{i-1}+U_{i+1})/2 - dt/(2dx)(F_{i+1}-F_{i-1}), CFL 0.9) is very diffusive and shows odd-even ' +
-        'decoupling in constant states; no published L1 table found. Bands ~1.3x researcher scratch measurement (research/hyp.md).'
+        'decoupling in constant states; no published L1 table found. Bands ~1.4x researcher scratch measurement 2.848e-2/2.017e-2/1.363e-2 at N=100/200/400 (observed order 0.50-0.57), research/hyp.md.'
     }
   });
 
@@ -174,8 +175,9 @@
     kind: 'function',
     fn: function (x, t, params) { return exactSod(x, t, merge(SOD_MOD, params)); },
     params: { t: 0.2, x: [0, 1] },
-    tolerance: { metric: 'L1-density', value: { 'first-order N=100': 0.03, 'second-order N=100': 0.015 },
-      rationale: 'Engineering band (no published table found); researcher scratch measurement, see research/hyp.md.' }
+    tolerance: { metric: 'L1-density', value: { 'first-order N=100': 0.019, 'first-order N=400': 0.0081, 'second-order N=100': 0.0095, 'second-order N=400': 0.0034 },
+      rationale: 'Engineering band ~1.4x researcher scratch measurement (Godunov-HLLC 1.354e-2 @N=100, 5.778e-3 @N=400; MUSCL-Hancock-minmod-HLLC 6.800e-3 @100, 2.398e-3 @400). ' +
+        'Qualitative check (Toro): first-order Roe without entropy fix shows an entropy-violating jump at the sonic point near x~0.3; HLLC / exact-solver Godunov do not.' }
   });
 
   /* ---------------- scalar references: published star values ---------------- */

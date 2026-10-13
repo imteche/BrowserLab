@@ -28,6 +28,7 @@ function load(opts) {
   const refs = listJs('references');
   refs.filter(f => path.basename(f).startsWith('sources-')).forEach(runFile);
   refs.filter(f => !path.basename(f).startsWith('sources-')).forEach(runFile);
+  runFile(path.join(ROOT, 'js/overlays.js'));
   const methods = opts.methods || 'all';
   listJs('methods').forEach(f => {
     const id = path.basename(f, '.js');

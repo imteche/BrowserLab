@@ -43,13 +43,13 @@ a:hover { text-decoration: underline; }
 code, .mono { font-family: var(--mono); font-size: 12px; }
 
 /* ---------- top bar ---------- */
-.bar { display: flex; align-items: center; gap: 14px; padding: 0 14px; height: 44px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+.bar { display: flex; align-items: center; gap: 12px; min-width: 0; overflow: hidden; padding: 0 14px; height: 44px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
 .mark { font: 600 13px var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
 .mark b { color: var(--accent); font-weight: 600; }
 .bar .sep { width: 1px; height: 22px; background: var(--line); }
 .field-inline { display: flex; align-items: center; gap: 6px; }
 .field-inline label { color: var(--dim); font: 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
-select { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 2px; padding: 4px 6px; max-width: 280px; }
+select { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 2px; padding: 4px 6px; max-width: 230px; min-width: 0; }
 select:focus, button:focus-visible, input:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .btn { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 2px; padding: 4px 10px; cursor: pointer; font: 500 12px var(--mono); }
 .btn:hover { border-color: var(--dim); }
@@ -129,7 +129,8 @@ canvas.main { display: block; width: 100%; background: #07090b; border: 1px soli
 .rpane { display: none; }
 .rpane.on { display: block; }
 .eq { border-left: 2px solid var(--line-2); padding: 4px 0 6px 10px; margin: 0 0 12px; }
-.eq .lab { font: 11px var(--mono); color: var(--dim); display: flex; justify-content: space-between; gap: 8px; }
+.eq .eq-h { font: 11px var(--mono); color: var(--dim); }
+.eq .eq-h span:first-child { display: block; color: var(--text); }
 .eq .tex { overflow-x: auto; padding: 4px 0; font-size: 13px; }
 .eq .tex.raw { font: 12px var(--mono); color: var(--text); white-space: pre-wrap; }
 pre.code { margin: 0; padding: 10px 0; font: 11.5px/1.5 var(--mono); overflow: auto; counter-reset: ln; background: #07090b; }
@@ -167,6 +168,11 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 .reasons .r.incomplete { border-color: var(--inc); }
 .reasons .r.matched { border-color: var(--ok); }
 
+@media (max-width: 1600px) {
+  .bar { flex-wrap: wrap; height: auto; padding: 6px 14px; row-gap: 6px; }
+  .tabs-top button { padding: 6px 8px; }
+  .lab { height: auto; min-height: calc(100vh - 84px); }
+}
 @media (max-width: 1180px) {
   .lab { grid-template-columns: 280px minmax(0, 1fr); height: auto; }
   .lab > .col:last-child { grid-column: 1 / 3; border-top: 1px solid var(--line); }
@@ -521,12 +527,14 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   LAB.registerScene({
     id: 'swe-dambreak',
     title: '1D shallow-water dam break',
-    domain: 'Channel with a dam at x0; still water h_L upstream, h_R ≥ 0 downstream, g = 9.81.',
+    domain: 'Channel [0, L] with a dam at x0; still water h_l upstream, h_r ≥ 0 downstream, g = 9.81. Params: hl, hr, x0, L, g.',
     nondim: 'Dimensional (SI). Ritter (h_R = 0) and Stoker (h_R > 0) analytic solutions.',
     probes: ['profile', 'totals'],
     experiments: [
-      { id: 'swe-wet', title: 'Wet bed (Stoker)', params: { hR: 0.5 }, quantity: 'h(x), u(x) vs Stoker solution' },
-      { id: 'swe-dry', title: 'Dry bed (Ritter)', params: { hR: 0 }, quantity: 'h(x), u(x) vs Ritter solution' }
+      { id: 'swe-wet', title: 'Wet bed (Stoker), SWASHES 4.1.1, t = 6 s', params: { hl: 0.005, hr: 0.001, x0: 5, L: 10 },
+        quantity: 'h(x), u(x) vs Stoker solution; plateau depth h_m' },
+      { id: 'swe-dry', title: 'Dry bed (Ritter), SWASHES 4.1.2, t = 6 s', params: { hl: 0.005, hr: 0, x0: 5, L: 10 },
+        quantity: 'h(x), u(x) vs Ritter solution; front position' }
     ],
     overlays: {
       h: { probe: 'profile', x: 'x', y: 'h', label: 'h' },
@@ -918,6 +926,349 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
+<script>/* references/sources-ptc.js */
+// Sources for particle / hybrid fluid methods (WCSPH, PBF, MLS-MPM), the
+// `dam-break` scene and SPH on `taylor-green`.
+// Researcher: ptc group. Access date for all entries: 2026-10-13.
+// "verified: true" only where the cited section/code was read in full in this session.
+(function (LAB) {
+  'use strict';
+
+  // ---------------------------------------------------------------- dam-break data
+
+  LAB.registerSource({
+    id: 'martin1952',
+    title: 'Part IV. An experimental study of the collapse of liquid columns on a rigid horizontal plane',
+    authors: 'J. C. Martin, W. J. Moyce',
+    year: 1952,
+    venue: 'Phil. Trans. R. Soc. Lond. A 244 (882), 312-324',
+    url: 'https://royalsocietypublishing.org/doi/10.1098/rsta.1952.0006',
+    doi: '10.1098/rsta.1952.0006',
+    license: 'publisher copyright (paywalled)',
+    openAccess: false,
+    access: 'secondary-copy',
+    accessNote: 'Original not reachable (publisher and a JSTOR-derived copy at math.ntu.edu.tw are blocked from this container). ' +
+      'Surge-front data taken from two independent open copies: (1) Lethe examples/multiphysics/dam-break/dam-break-2d.py ' +
+      '(lethe-dambreak; 14 points, a = 2.25 in case, Z at steps of 1/9 = 0.25 in/a), (2) PySPH pysph/examples/db_exp_data.py ' +
+      '(pysph-dbexp; digitised from Fig. 3, n^2 = 2, a = 1.125 in and a = 2.25 in). The two copies agree to |dZ| <= 0.08 where they overlap. ' +
+      'DOI: Lethe and the Royal Society URL give rsta.1952.0006; PySPH docstring gives rsta.1952.0007 (that is believed to be Part V, pp. 325-334) - the PySPH DOI is treated as a typo. ' +
+      'Abstract-level statements (front velocity scales with sqrt of column height in 2D) from web-search snippets only.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'koshizuka1996',
+    title: 'Moving-particle semi-implicit method for fragmentation of incompressible fluid',
+    authors: 'S. Koshizuka, Y. Oka',
+    year: 1996,
+    venue: 'Nucl. Sci. Eng. 123, 421-434',
+    url: 'https://doi.org/10.13182/NSE96-A24205',
+    doi: '10.13182/NSE96-A24205',
+    license: 'publisher copyright (paywalled)',
+    openAccess: false,
+    access: 'secondary-copy',
+    accessNote: 'Not read. Data points "ko_data" (labelled experiment) and "ko_mps_data" (MPS computation) are available only as digitised in PySPH db_exp_data.py ' +
+      '(axes z/L vs t*sqrt(2g/L) per the PySPH docstring). The EDAC-SPH manuscript (ramachandran2019edac, Sec. "Dam-break in two-dimensions") describes its comparison curve as the ' +
+      'MPS result of Koshizuka & Oka, whereas PySPH dam_break_2d.py plots ko_data labelled "Koshizuka & Oka (1996)" - the provenance (experiment vs MPS, which experiment) is ambiguous.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'pysph-dbexp',
+    title: 'PySPH 1.0b2: pysph/examples/db_exp_data.py and dam_break_2d.py (dam-break experimental data and example)',
+    authors: 'P. Ramachandran et al. (PySPH developers)',
+    year: 2025,
+    venue: 'PyPI package pysph 1.0b2 (uploaded 2025-05-23) (sdist pysph-1.0b2.tar.gz)',
+    url: 'https://pypi.org/project/pysph/',
+    doi: null,
+    license: 'BSD-3-Clause',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'sdist downloaded from files.pythonhosted.org into a scratch dir and read (not installed, not executed). db_exp_data.py: Martin & Moyce n^2=2 a=1.125 in (10 pts) and a=2.25 in (15 pts) ' +
+      'as (t*sqrt(2g/a), z/a), stated as "extracted from plots" (Fig. 3). dam_break_2d.py: 1 m x 2 m column in 4 m tank, g=9.81, rho0=1000, c0=10*sqrt(2*9.81*2), gamma=7, alpha=0.1, beta=0, ' +
+      'h=1.3*dx, dx=0.03, Wendland quintic kernel, dt=0.125*h/c0, tf=2.5 s, front=max(x) of fluid particles.',
+    verified: true
+  });
+
+  LAB.registerSource({
+    id: 'lethe-dambreak',
+    title: 'Lethe example "Dam-Break" (Martin and Moyce): dam-break-2d.py and dam-break.rst',
+    authors: 'The Lethe Authors (Polytechnique Montreal, CHAOS lab)',
+    year: 2026,
+    venue: 'GitHub chaos-polymtl/lethe, commit 40ffaed6 (2026-10-12)',
+    url: 'https://github.com/chaos-polymtl/lethe/blob/master/examples/multiphysics/dam-break/dam-break-2d.py',
+    doi: null,
+    license: 'Apache-2.0 WITH LLVM-exception OR LGPL-2.1-or-later',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Sparse git clone, read in full. Lists 14 Martin & Moyce (1952) points x_exp=tau=t*sqrt(2g/L), y_exp=delta=x_max/L, citing doi 10.1098/rsta.1952.0006. ' +
+      'Post-processing adds time_correction=0.175 to simulated tau before plotting (an empirical shift for gate-opening/onset lag). Simulation uses L=3.5, g=1.',
+    verified: true
+  });
+
+  LAB.registerSource({
+    id: 'ritter1892',
+    title: 'Die Fortpflanzung der Wasserwellen',
+    authors: 'A. Ritter',
+    year: 1892,
+    venue: 'Zeitschrift des Vereines Deutscher Ingenieure 36 (33), 947-954',
+    url: 'https://github.com/pypr/pysph/blob/master/pysph/examples/shallow_water/rectangular_dambreak.py',
+    doi: null,
+    license: 'public domain (age); open copy of the formula is BSD (PySPH)',
+    openAccess: false,
+    access: 'secondary-copy',
+    accessNote: 'Original not read. Dry-bed shallow-water dam-break solution taken from PySPH 1.0b2 examples/shallow_water/rectangular_dambreak.py, ' +
+      'function pos_actual: x = (2*sqrt(g*h0) - 3*sqrt(g*h))*t from the gate; the wet/dry front (h=0) moves at 2*sqrt(g*h0). Bibliographic details from general knowledge (unverified).',
+    verified: false
+  });
+
+  // ---------------------------------------------------------------- WCSPH
+
+  LAB.registerSource({
+    id: 'monaghan1994',
+    title: 'Simulating free surface flows with SPH',
+    authors: 'J. J. Monaghan',
+    year: 1994,
+    venue: 'J. Comput. Phys. 110 (2), 399-406',
+    url: 'https://doi.org/10.1006/jcph.1994.1034',
+    doi: '10.1006/jcph.1994.1034',
+    license: 'publisher copyright (paywalled)',
+    openAccess: false,
+    access: 'search-snippet',
+    accessNote: 'Not read. Search snippets (secondary papers) attribute to it the Tait/Batchelor EOS p=B((rho/rho0)^gamma-1), gamma=7, and the rule c0 >= 10*Umax keeping density fluctuation ~1%. ' +
+      'An often-quoted "B = 200 rho0 g H / gamma" could NOT be confirmed. Equation forms implemented from PySPH docstrings (pysph-wcsph).',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'monaghan2005',
+    title: 'Smoothed particle hydrodynamics',
+    authors: 'J. J. Monaghan',
+    year: 2005,
+    venue: 'Rep. Prog. Phys. 68, 1703-1759',
+    url: 'https://doi.org/10.1088/0034-4885/68/8/R01',
+    doi: '10.1088/0034-4885/68/8/R01',
+    license: 'publisher copyright',
+    openAccess: false,
+    access: 'secondary-copy',
+    accessNote: 'Not read (a seminar copy on cg.informatik.uni-freiburg.de is blocked). Cited by PySPH TaitEOS and MonaghanArtificialViscosity docstrings, whose formulas are used. ' +
+      'Cubic-spline kernel normalisation 10/(7*pi*h^2) in 2D is the standard form, not verified against this text.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'becker2007',
+    title: 'Weakly compressible SPH for free surface flows',
+    authors: 'M. Becker, M. Teschner',
+    year: 2007,
+    venue: 'Proc. ACM SIGGRAPH/Eurographics Symp. Computer Animation (SCA 2007), 209-217',
+    url: 'https://cg.informatik.uni-freiburg.de/publications/2007_SCA_SPH.pdf',
+    doi: '10.2312/SCA/SCA07/209-218',
+    license: 'author copy (free to read)',
+    openAccess: true,
+    access: 'search-snippet',
+    accessNote: 'Author PDF exists but host is blocked from this container. Snippets confirm: Tait EOS with high sound speed; relative density variation ~ |v_f|^2/c_s^2 and requirement ' +
+      '|v_f|/c_s < sqrt(eta) with eta typically 0.01 (=> c_s >= 10 v_max). Artificial-viscosity form and time-step coefficients (lambda_v, lambda_f) NOT confirmed; ' +
+      'a Pacific Graphics 2012 short paper citing it uses lambda_v=0.1, lambda_f=0.25.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'gomezgesteira2010',
+    title: 'State-of-the-art of classical SPH for free-surface flows',
+    authors: 'M. Gomez-Gesteira, B. D. Rogers, R. A. Dalrymple, A. J. C. Crespo',
+    year: 2010,
+    venue: 'J. Hydraulic Res. 48 (Extra Issue), 6-27',
+    url: 'https://ephyslab.uvigo.es/publica/documents/file_6Gomez-Gesteira_et_al_2010_JHR_SI.pdf',
+    doi: '10.1080/00221686.2010.9641242',
+    license: 'author copy (free to read)',
+    openAccess: true,
+    access: 'secondary-copy',
+    accessNote: 'Paper not read (host blocked). Its 2D dam-break setup is reproduced in PySPH dam_break_2d.py (pysph-dbexp), whose parameter values are recorded here.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'pysph-wcsph',
+    title: 'PySPH 1.0b2: pysph/sph/wc/basic.py (TaitEOS, MomentumEquation) and pysph/sph/basic_equations.py (ContinuityEquation, XSPHCorrection)',
+    authors: 'PySPH developers',
+    year: 2025,
+    venue: 'PyPI package pysph 1.0b2 (uploaded 2025-05-23)',
+    url: 'https://pypi.org/project/pysph/',
+    doi: null,
+    license: 'BSD-3-Clause',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Docstrings and code read from the sdist. Gives the WCSPH equation set with LaTeX and its citations (Monaghan 1992, 2005; Cole 1948).',
+    verified: true
+  });
+
+  LAB.registerSource({
+    id: 'splishsplash',
+    title: 'SPlisHSPlasH: WCSPH/TimeStepWCSPH.cpp and PBF/TimeStepPBF.{h,cpp}',
+    authors: 'J. Bender et al.',
+    year: 2026,
+    venue: 'GitHub InteractiveComputerGraphics/SPlisHSPlasH (master)',
+    url: 'https://github.com/InteractiveComputerGraphics/SPlisHSPlasH',
+    doi: null,
+    license: 'MIT',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Fetched via raw.githubusercontent.com. WCSPH defaults: stiffness 50, exponent 7, p = k*((rho/rho0)^7 - 1). PBF: lambda = -C/(sum|gradC|^2 + eps), eps=1e-6, cites Macklin & Mueller 2013.',
+    verified: true
+  });
+
+  // ---------------------------------------------------------------- PBF
+
+  LAB.registerSource({
+    id: 'macklin2013',
+    title: 'Position based fluids',
+    authors: 'M. Macklin, M. Mueller',
+    year: 2013,
+    venue: 'ACM Trans. Graph. 32 (4), 104:1-104:12 (SIGGRAPH 2013)',
+    url: 'https://mmacklin.com/pbf_sig_preprint.pdf',
+    doi: '10.1145/2461912.2461984',
+    license: 'author preprint (free to read)',
+    openAccess: true,
+    access: 'search-snippet',
+    accessNote: 'Author preprint host blocked. Snippets confirm: C_i = rho_i/rho0 - 1; artificial pressure s_corr with |dq| = 0.1h...0.3h, k = 0.1, n = 4 "work well"; XSPH c "typically 0.01"; ' +
+      'vorticity confinement as velocity post-process. lambda/Delta-p formulas cross-checked against open implementations (splishsplash, taichi-pbf2d). Equation numbers not verified.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'taichi-pbf2d',
+    title: 'Taichi example python/taichi/examples/simulation/pbf2d.py',
+    authors: 'Taichi developers',
+    year: 2026,
+    venue: 'GitHub taichi-dev/taichi (master)',
+    url: 'https://github.com/taichi-dev/taichi/blob/master/python/taichi/examples/simulation/pbf2d.py',
+    doi: null,
+    license: 'Apache-2.0',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Read via raw.githubusercontent.com. 2D PBF reference: poly6 density, spiky gradient, h=1.1, rho0=1, lambda_epsilon=100, 5 iterations, dt=1/20, corr_deltaQ_coeff=0.3, corrK=0.001, n=4. ' +
+      'Note corrK=0.001 differs from the paper k=0.1 (tuned for its units).',
+    verified: true
+  });
+
+  // ---------------------------------------------------------------- MLS-MPM
+
+  LAB.registerSource({
+    id: 'hu2018mlsmpm',
+    title: 'A moving least squares material point method with displacement discontinuity and two-way rigid body coupling',
+    authors: 'Y. Hu, Y. Fang, Z. Ge, Z. Qu, Y. Zhu, A. Pradhana, C. Jiang',
+    year: 2018,
+    venue: 'ACM Trans. Graph. 37 (4), 150 (SIGGRAPH 2018)',
+    url: 'https://www.math.ucla.edu/~cffjiang/research/mlsmpm/hu2018mlsmpm.pdf',
+    doi: '10.1145/3197517.3201293',
+    license: 'author copy (free to read)',
+    openAccess: true,
+    access: 'search-snippet',
+    accessNote: 'Paper PDF host blocked. Snippets confirm MLS-MPM recovers APIC/PolyPIC consistent with a Galerkin weak form. Concrete update equations taken from the authors\' open 88-line codes (mlsmpm88-cpp, taichi-mpm88).',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'mlsmpm88-cpp',
+    title: 'taichi_mpm: mls-mpm88-explained.cpp (88-line MLS-MPM, explained version)',
+    authors: 'Y. Hu (code), D. Medina (explanations)',
+    year: 2018,
+    venue: 'GitHub yuanming-hu/taichi_mpm (master)',
+    url: 'https://github.com/yuanming-hu/taichi_mpm/blob/master/mls-mpm88-explained.cpp',
+    doi: null,
+    license: 'MIT',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Read via raw.githubusercontent.com. Quadratic B-spline weights, D^-1 = 4/dx^2, fused APIC+stress affine term (comment cites mls-mpm-cpic.pdf Eqn 29), C update 4/dx * sum w v_i (x_i-x_p)^T, F <- (I + dt C)F. Material is snow (fixed-corotated), not fluid.',
+    verified: true
+  });
+
+  LAB.registerSource({
+    id: 'taichi-mpm88',
+    title: 'Taichi example python/taichi/examples/simulation/mpm88.py (MLS-MPM fluid in 88 lines)',
+    authors: 'Y. Hu and Taichi developers',
+    year: 2026,
+    venue: 'GitHub taichi-dev/taichi (master)',
+    url: 'https://github.com/taichi-dev/taichi/blob/master/python/taichi/examples/simulation/mpm88.py',
+    doi: null,
+    license: 'Apache-2.0',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Read in full via raw.githubusercontent.com. Weakly compressible fluid tracked by scalar J: stress = -dt*4*E*p_vol*(J-1)/dx^2, J *= 1 + dt*tr(C). ' +
+      'n_grid=128, n_particles=8192, dt=2e-4, p_rho=1, p_vol=(dx/2)^2, E=400, g=9.8, bound=3 cells (slip-separating walls).',
+    verified: true
+  });
+
+  // ---------------------------------------------------------------- SPH on Taylor-Green
+
+  LAB.registerSource({
+    id: 'adami2013',
+    title: 'A transport-velocity formulation for smoothed particle hydrodynamics',
+    authors: 'S. Adami, X. Y. Hu, N. A. Adams',
+    year: 2013,
+    venue: 'J. Comput. Phys. 241, 292-307',
+    url: 'https://doi.org/10.1016/j.jcp.2013.01.043',
+    doi: '10.1016/j.jcp.2013.01.043',
+    license: 'publisher copyright (paywalled)',
+    openAccess: false,
+    access: 'secondary-copy',
+    accessNote: 'Not read. Its TG results are described in the EDAC manuscript (ramachandran2019edac): uniform initial particles give about an order of magnitude more error than the "relaxed" initial condition. ' +
+      'No numeric error values obtained.',
+    verified: false
+  });
+
+  LAB.registerSource({
+    id: 'ramachandran2019edac',
+    title: 'Entropically damped artificial compressibility for SPH',
+    authors: 'P. Ramachandran, K. Puri',
+    year: 2019,
+    venue: 'Computers & Fluids 179, 579-594 (arXiv:1612.05901)',
+    url: 'https://gitlab.com/prabhu/edac_sph',
+    doi: '10.1016/j.compfluid.2018.11.023',
+    license: 'arXiv non-exclusive (manuscript source in public GitLab repo)',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Manuscript LaTeX (manuscript/results.tex) read from the public GitLab repo; figures are not in the repo, so curve values are not available. TG setup: Re=100, nx=ny=50, ' +
+      'random perturbation max dx/5, quintic spline with h=dx, no artificial viscosity, PEC integrator, dt=min(h/(4(c_s+|U|max)), h^2/(8 nu)). Text: EDAC(TVF) L1 velocity error lower than TVF "by almost a factor of 4".',
+    verified: true
+  });
+
+  LAB.registerSource({
+    id: 'negi2022convergence',
+    title: 'Techniques for second order convergent weakly-compressible smoothed particle hydrodynamics schemes without boundaries',
+    authors: 'P. Negi, P. Ramachandran',
+    year: 2022,
+    venue: 'Phys. Fluids (arXiv:2107.11859)',
+    url: 'https://gitlab.com/pypr/convergence_sph',
+    doi: null,
+    license: 'arXiv non-exclusive (manuscript source in public GitLab repo)',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Manuscript LaTeX read from public GitLab repo. TG exact solution with b=-8 pi^2/Re, Re=100, U=1, resolutions 50^2..500^2, c0=10U, dt=0.3h/(Umax+c0); ' +
+      'text states EDAC/EWCSPH/L-IPST-C pressure errors ~4 orders below TVF and delta+SPH after 1 step. Numeric error values are in figures only (not in repo). Journal volume/DOI not verified.',
+    verified: true
+  });
+
+  LAB.registerSource({
+    id: 'pysph-tg',
+    title: 'PySPH 1.0b2: pysph/examples/taylor_green.py',
+    authors: 'PySPH developers',
+    year: 2025,
+    venue: 'PyPI package pysph 1.0b2 (uploaded 2025-05-23)',
+    url: 'https://pypi.org/project/pysph/',
+    doi: null,
+    license: 'BSD-3-Clause',
+    openAccess: true,
+    access: 'full-text',
+    accessNote: 'Read from sdist. Exact solution u=-U e^{bt} cos(2 pi x) sin(2 pi y), v=U e^{bt} sin(2 pi x) cos(2 pi y), p=-U^2 e^{2bt}(cos 4 pi x + cos 4 pi y)/4, b=-8 pi^2/Re, L=1, U=1, rho0=1, c0=10U, ' +
+      'default nx=50, Re=100, tf=2, dt=min(0.25 h/(c0+U), 0.125 h^2/nu). Error metrics: Linf of max|v| decay, L1 of |v| normalised by mean exact |v|.',
+    verified: true
+  });
+
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
 <script>/* references/cavity.js */
 /* Lid-driven cavity references (scene 'cavity').
  * Unit square, lid y=1 moving in +x with U=1, Re = U L / nu. Velocities in units of U_lid.
@@ -1070,6 +1421,127 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
       source: 'schafer1996', location: 'Table 4; ' + loc, kind: 'scalar',
       value: 2.4848, valueSource: 'featflow-dfg (vortexlab extraction; fem-cylinder-flow extraction 2.4829 - method-dependent)', range: [2.46, 2.50],
       tolerance: { metric: 'rel', value: 0.04, rationale: 'Depends on phase-picking within the period plus surface interpolation; copies of the refined value already differ by 0.08%.' } });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* references/dam-break.js */
+// References for scene `dam-break`: 2D collapse of a water column of width a and
+// height 2a (n^2 = H/a = 2) on a dry horizontal floor, released at t = 0.
+//
+// TIME / LENGTH CONVENTIONS (all tables below use the Martin & Moyce one):
+//   Z = x_front / a                (x_front measured from the wall behind the column)
+//   T = t * sqrt(2 g / a)          (Martin & Moyce 1952; also PySPH, Lethe)
+// Conversions:
+//   Koshizuka & Oka style  T_K = t * sqrt(g / a)          = T / sqrt(2)
+//   column-height style    T_H = t * sqrt(g / H), H = 2a  = T / 2
+//   physical               t   = T / sqrt(2 g / a);  x_front = Z * a
+// The `front` probe of the scene is in physical units, so a checker must apply
+// Z = front / a and T = sim.t * sqrt(2 g / a) with the run's a and g.
+//
+// No open copy of the Martin & Moyce residual column height (H/2a vs T) was
+// found; no column_height reference is registered (see research/ptc.md).
+(function (LAB) {
+  'use strict';
+
+  var SHARED_TOL_NOTE =
+    'Experimental scatter: the two open copies of the a=2.25 in data differ by up to 0.08 in Z; ' +
+    'the a=1.125 in and a=2.25 in series differ by up to ~0.1 at equal T. Gate removal is not instantaneous, so ' +
+    'experiments lag ideal simulations at early time; Lethe adds +0.175 to simulated T before comparing. ' +
+    'Suggested check: max |Z_sim - Z_ref| over 0 < T <= 3 after allowing a single best-fit time shift dT in [0, 0.25] ' +
+    '(report dT). Without the shift expect ~0.3 extra error near T = 1-2.';
+
+  // Primary: Lethe copy (14 points; Z in steps of 1/9 = 0.25 in / 2.25 in, which
+  // matches the a = 2.25 in case tabulated by Martin & Moyce).
+  LAB.registerReference({
+    id: 'dam-break-mm-front-lethe',
+    scene: 'dam-break',
+    quantity: 'surge front Z = x_front/a vs T = t*sqrt(2g/a), n^2 = 2 (column height 2a), Martin & Moyce (1952), a = 2.25 in',
+    source: 'martin1952',
+    location: 'Experimental points as listed in Lethe examples/multiphysics/dam-break/dam-break-2d.py (x_exp, y_exp); open copy (lethe-dambreak) of Martin & Moyce data, original table not verified',
+    kind: 'table',
+    columns: ['T', 'Z'],
+    rows: [
+      [0.00, 1.00], [0.41, 1.11], [0.84, 1.23], [1.19, 1.44], [1.43, 1.67],
+      [1.63, 1.89], [1.82, 2.11], [1.97, 2.33], [2.20, 2.56], [2.32, 2.78],
+      [2.50, 3.00], [2.64, 3.22], [2.82, 3.44], [2.96, 3.67]
+    ],
+    copies: ['lethe-dambreak', 'pysph-dbexp'],
+    tolerance: { metric: 'max-abs', value: 0.25, rationale: SHARED_TOL_NOTE }
+  });
+
+  // Second copy, same configuration, longer time range (digitised from Fig. 3).
+  LAB.registerReference({
+    id: 'dam-break-mm-front-a225',
+    scene: 'dam-break',
+    quantity: 'surge front Z = x_front/a vs T = t*sqrt(2g/a), n^2 = 2, a = 2.25 in (Martin & Moyce Fig. 3, digitised)',
+    source: 'martin1952',
+    location: 'PySPH 1.0b2 pysph/examples/db_exp_data.py, mm_data_2 ("n^2=2 and a=2.25 from Figure 3"); open copy (pysph-dbexp)',
+    kind: 'table',
+    columns: ['T', 'Z'],
+    rows: [
+      [0.832, 1.217], [1.219, 1.474], [1.997, 2.292], [2.547, 2.995], [3.345, 4.134],
+      [4.034, 4.944], [4.418, 5.881], [5.091, 6.980], [5.685, 7.945], [6.306, 8.966],
+      [6.822, 9.986], [7.439, 10.963], [8.031, 11.977], [8.633, 13.005], [9.237, 13.970]
+    ],
+    copies: ['pysph-dbexp', 'lethe-dambreak'],
+    tolerance: { metric: 'max-abs', value: 0.25, rationale: SHARED_TOL_NOTE + ' Use only up to the tank length of the run (Z <= L_tank/a).' }
+  });
+
+  LAB.registerReference({
+    id: 'dam-break-mm-front-a1125',
+    scene: 'dam-break',
+    quantity: 'surge front Z = x_front/a vs T = t*sqrt(2g/a), n^2 = 2, a = 1.125 in (Martin & Moyce Fig. 3, digitised)',
+    source: 'martin1952',
+    location: 'PySPH 1.0b2 pysph/examples/db_exp_data.py, mm_data_1 ("n^2=2 and a=1.125 from Figure 3"); open copy (pysph-dbexp)',
+    kind: 'table',
+    columns: ['T', 'Z'],
+    rows: [
+      [0.849, 1.245], [1.212, 1.443], [1.602, 1.884], [2.283, 2.689], [2.950, 3.728],
+      [3.598, 4.528], [3.905, 4.999], [4.592, 5.841], [4.961, 6.271], [5.316, 6.717]
+    ],
+    copies: ['pysph-dbexp'],
+    tolerance: { metric: 'max-abs', value: 0.3, rationale: 'Smaller column: surface tension/viscous effects larger; single digitised copy. ' + SHARED_TOL_NOTE }
+  });
+
+  // Koshizuka & Oka curve as digitised by PySPH; provenance ambiguous (see sources).
+  LAB.registerReference({
+    id: 'dam-break-ko-front',
+    scene: 'dam-break',
+    quantity: 'surge front Z = x_front/L vs T = t*sqrt(2g/L), L = column width, height 2L (Koshizuka & Oka 1996 curve, as digitised by PySPH)',
+    source: 'koshizuka1996',
+    location: 'PySPH 1.0b2 pysph/examples/db_exp_data.py, ko_data (axes per docstring "z/L vs t*np.sqrt(2*g/L)"); open copy (pysph-dbexp)',
+    kind: 'table',
+    columns: ['T', 'Z'],
+    rows: [
+      [0.0, 1.000], [0.381, 1.111], [0.769, 1.252], [1.153, 1.505], [1.537, 1.892],
+      [1.935, 2.241], [2.323, 2.615], [2.719, 3.003], [3.096, 3.624]
+    ],
+    copies: ['pysph-dbexp'],
+    tolerance: { metric: 'max-abs', value: 0.35, rationale: 'Secondary/diagnostic only. Differs from the Martin & Moyce copies by up to 0.31 in Z at T = 2.7 (leads at T~1.5, lags at T>2.3). ' +
+      'Unclear whether it is K&O experiment or their MPS result; do not use as the pass/fail reference.' }
+  });
+
+  // Analytic bound: Ritter (1892) dry-bed shallow-water front speed 2*sqrt(g*H0).
+  // With H0 = 2a: dx/dt = 2*sqrt(2 g a)  =>  Z(T) = 1 + 2 T  in Martin & Moyce units.
+  LAB.registerReference({
+    id: 'dam-break-ritter-front-bound',
+    scene: 'dam-break',
+    quantity: 'upper bound on surge front: Z_max(T) = 1 + 2T (front speed 2*sqrt(g*H0), H0 = 2a), Martin & Moyce units',
+    source: 'ritter1892',
+    location: 'Dry-bed Ritter solution, front speed 2*sqrt(g*h0); formula as implemented in PySPH examples/shallow_water/rectangular_dambreak.py pos_actual() with h=0',
+    kind: 'function',
+    // fn(T) -> Z bound.  params optional: { H0_over_a: 2 } for other aspect ratios.
+    fn: function (T, t, params) {
+      var r = (params && params.H0_over_a) ? params.H0_over_a : 2;
+      // Z = 1 + 2*sqrt(g*H0)*t/a = 1 + 2*sqrt(r/2)*T  (T = t*sqrt(2g/a))
+      return 1 + 2 * Math.sqrt(r / 2) * T;
+    },
+    // physical-units helper: x_front_max(t) for column width a, height H0, gravity g
+    fnPhysical: function (t, a, H0, g) { return a + 2 * Math.sqrt(g * H0) * t; },
+    tolerance: { metric: 'bound', value: 0, rationale: 'Shallow-water theory (hydrostatic, inviscid, no bed friction) - an upper bound/limit, not a target. ' +
+      'Measured late-time slope dZ/dT in mm_data_2 (T 5.1-9.2) is ~1.69 (derived here), below 2. A simulated front that persistently exceeds 1 + 2T indicates a bug (e.g. excessive particle penetration or wrong g).' }
+  });
+
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
@@ -1468,12 +1940,13 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     params: { t: 0.2, x: [0, 1] },
     tolerance: {
       metric: 'L1-density',
-      value: { 'first-order N=100': 0.025, 'first-order N=200': 0.015, 'first-order N=400': 0.009,
-               'second-order N=100': 0.012, 'second-order N=200': 0.0065, 'second-order N=400': 0.0035 },
+      value: { 'first-order N=100': 0.021, 'first-order N=200': 0.013, 'first-order N=400': 0.0085,
+               'second-order N=100': 0.0095, 'second-order N=200': 0.0052, 'second-order N=400': 0.0029 },
       rationale: 'L1 norm of rho_num - rho_exact over [0,1] at t=0.2 (cell-average of the method vs exact value at cell centre, sum |.|*dx). ' +
         'NO open source with tabulated Sod L1 errors could be retrieved (see research/hyp.md). Values are BrowserLab engineering bands ' +
-        'set at ~1.3-1.5x the errors measured with the researcher\'s scratch implementations (Godunov-HLLC first order; MUSCL-Hancock + minmod + HLLC, CFL 0.9): ' +
-        'see research/hyp.md "Calibration runs". Lax-Friedrichs is far more diffusive; use the separate lax-friedrichs band.'
+        'set at ~1.4x the errors measured with the researcher\'s scratch implementations (Godunov-HLLC first order: 1.475e-2/9.366e-3/5.970e-3 at N=100/200/400; ' +
+        'MUSCL-Hancock + minmod on conservative variables + HLLC: 6.581e-3/3.581e-3/1.997e-3; CFL 0.9; `node research/test-exact-solvers.js --calibrate`). ' +
+        'Observed L1 orders ~0.65 (first order) and ~0.85 (second order): below 1 because of the discontinuities. Lax-Friedrichs is far more diffusive; use the separate lax-friedrichs band.'
     }
   });
 
@@ -1486,9 +1959,9 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     fn: exactSod,
     tolerance: {
       metric: 'L1-density',
-      value: { 'N=100': 0.06, 'N=200': 0.04, 'N=400': 0.026 },
+      value: { 'N=100': 0.040, 'N=200': 0.028, 'N=400': 0.019 },
       rationale: 'Classic Lax-Friedrichs (U_i^{n+1} = (U_{i-1}+U_{i+1})/2 - dt/(2dx)(F_{i+1}-F_{i-1}), CFL 0.9) is very diffusive and shows odd-even ' +
-        'decoupling in constant states; no published L1 table found. Bands ~1.3x researcher scratch measurement (research/hyp.md).'
+        'decoupling in constant states; no published L1 table found. Bands ~1.4x researcher scratch measurement 2.848e-2/2.017e-2/1.363e-2 at N=100/200/400 (observed order 0.50-0.57), research/hyp.md.'
     }
   });
 
@@ -1500,8 +1973,9 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     kind: 'function',
     fn: function (x, t, params) { return exactSod(x, t, merge(SOD_MOD, params)); },
     params: { t: 0.2, x: [0, 1] },
-    tolerance: { metric: 'L1-density', value: { 'first-order N=100': 0.03, 'second-order N=100': 0.015 },
-      rationale: 'Engineering band (no published table found); researcher scratch measurement, see research/hyp.md.' }
+    tolerance: { metric: 'L1-density', value: { 'first-order N=100': 0.019, 'first-order N=400': 0.0081, 'second-order N=100': 0.0095, 'second-order N=400': 0.0034 },
+      rationale: 'Engineering band ~1.4x researcher scratch measurement (Godunov-HLLC 1.354e-2 @N=100, 5.778e-3 @N=400; MUSCL-Hancock-minmod-HLLC 6.800e-3 @100, 2.398e-3 @400). ' +
+        'Qualitative check (Toro): first-order Roe without entropy fix shows an entropy-violating jump at the sonic point near x~0.3; HLLC / exact-solver Godunov do not.' }
   });
 
   /* ---------------- scalar references: published star values ---------------- */
@@ -1569,7 +2043,15 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
  *
  * Stoker: the middle-state celerity c_m = sqrt(g h_m) is the root in
  * (sqrt(g h_r), sqrt(g h_l)) of
- *    -8 g h_r c_m^2 (g h_l - c_m^2)^2 + (c_m^2 - g h_r)^2 (c_m^2 + g h_r) = 0,
+ *    -8 g h_r c_m^2 (sqrt(g h_l) - c_m)^2 + (c_m^2 - g h_r)^2 (c_m^2 + g h_r) = 0.
+ * DISCREPANCY: tilupy 2.1.1 (Stoker_SWASHES_wet.equation_cm) writes the first factor as
+ * (g h_l - c_m^2)^2, which is dimensionally inconsistent (c^8 vs c^6) and gives a
+ * middle state that violates the Rankine-Hugoniot conditions (e.g. h_m = 0.752 instead of
+ * 0.3962 for h_l=1, h_r=0.1). The form used here follows from equating the 1-rarefaction
+ * Riemann invariant u_m = 2(sqrt(g h_l) - c_m) with the 2-shock Hugoniot locus
+ * u_m = (h_m - h_r) sqrt(g (h_m + h_r) / (2 h_m h_r)) (riemann_book shallow_water.py), and is
+ * verified against an independent bisection solver and RH/momentum checks in
+ * research/test-exact-solvers.js. Which form the SWASHES PDF prints could not be checked.
  * solved here by safeguarded Newton (Newton with bisection fallback on the bracket,
  * where the residual changes sign: F(sqrt(g h_r)) < 0 < F(sqrt(g h_l))).
  */
@@ -1591,13 +2073,13 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   }
 
   function stokerResidual(cm, g, hl, hr) {
-    var c2 = cm * cm, a = g * hl - c2, b = c2 - g * hr;
+    var c2 = cm * cm, a = Math.sqrt(g * hl) - cm, b = c2 - g * hr;
     return -8 * g * hr * c2 * a * a + b * b * (c2 + g * hr);
   }
   function stokerResidualDeriv(cm, g, hl, hr) {
-    var c2 = cm * cm, a = g * hl - c2, b = c2 - g * hr;
+    var c2 = cm * cm, a = Math.sqrt(g * hl) - cm, b = c2 - g * hr;
     // d/dcm of the residual
-    var d1 = -8 * g * hr * (2 * cm * a * a + c2 * 2 * a * (-2 * cm));
+    var d1 = -8 * g * hr * (2 * cm * a * a - 2 * c2 * a);
     var d2 = 2 * b * (2 * cm) * (c2 + g * hr) + b * b * (2 * cm);
     return d1 + d2;
   }
@@ -1681,9 +2163,9 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     params: { t: 6, x: [0, 10], alt: UNIT },
     tolerance: {
       metric: 'L1-depth-relative',
-      value: { 'N=200': 0.06, 'N=400': 0.04 },
-      rationale: 'sum|h_num-h_exact|dx / sum h_exact dx at t_end. No published L1 table retrieved; band set at ~1.5x the researcher\'s scratch ' +
-        'HLL (Einfeldt speeds, first order, CFL 0.9) measurement (research/hyp.md). The wet/dry front is smeared and lags for first-order schemes; ' +
+      value: { 'first-order N=200': 0.017, 'first-order N=400': 0.010, 'second-order N=200': 0.009, 'second-order N=400': 0.0045 },
+      rationale: 'sum|h_num-h_exact|dx / sum h_exact dx at t_end. No published L1 table retrieved; bands ~1.4x the researcher\'s scratch measurements ' +
+        '(HLL/Einfeldt first order: 1.146e-2 @N=200, 6.771e-3 @N=400; MUSCL-Hancock+minmod+HLL: 6.221e-3, 3.118e-3; CFL 0.9; SWASHES config, unit config within 5%). The wet/dry front is smeared; ' +
         'front position checks should use a threshold (e.g. h > 1e-6 hl) with a band of several cells, not the exact front 2 sqrt(g hl) t.'
     }
   });
@@ -1692,15 +2174,15 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     id: 'swe-dambreak-stoker',
     scene: 'swe-dambreak',
     quantity: 'Stoker wet-bed dam-break {h,u}(x,t); params {g, x0, hl, hr} (default SWASHES: g=9.81, x0=5, hl=0.005, hr=0.001)',
-    source: 'swashes2013', location: 'Sec. 4.1.1 "Dam break on a wet domain without friction (Stoker\'s solution)"; c_m equation and x_A, x_B, x_C as in tilupy analytic_sol.Stoker_SWASHES_wet',
+    source: 'swashes2013', location: 'Sec. 4.1.1 "Dam break on a wet domain without friction (Stoker\'s solution)"; x_A, x_B, x_C, h, u as in tilupy analytic_sol.Stoker_SWASHES_wet; c_m equation CORRECTED (see header) and checked vs riemannbook2020 Hugoniot locus',
     kind: 'function',
     fn: stoker,
     params: { t: 6, x: [0, 10], alt: UNIT },
     tolerance: {
       metric: 'L1-depth-relative',
-      value: { 'first-order N=200': 0.03, 'first-order N=400': 0.02, 'second-order N=200': 0.015, 'second-order N=400': 0.008 },
-      rationale: 'Relative L1 depth error at t_end. No published L1 table retrieved; bands ~1.5x researcher scratch measurements (HLL first order; ' +
-        'MUSCL-Hancock+minmod+HLL second order), research/hyp.md.'
+      value: { 'first-order N=200': 0.0126, 'first-order N=400': 0.0073, 'second-order N=200': 0.0052, 'second-order N=400': 0.0026 },
+      rationale: 'Relative L1 depth error at t_end. No published L1 table retrieved; bands ~1.4x the worse of the two configs in researcher scratch runs ' +
+        '(HLL first order: SWASHES 7.548e-3/4.326e-3, unit 8.998e-3/5.225e-3 at N=200/400; MUSCL-Hancock+minmod+HLL: SWASHES 3.212e-3/1.673e-3, unit 3.713e-3/1.803e-3), research/hyp.md.'
     }
   });
 
@@ -1800,6 +2282,67 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     },
     tolerance: { metric: 'rel', value: 0.01, rationale: 'Checked at t = 1/(2 nu k^2) (velocity e-folding time). Energy is an integral quantity and converges faster than pointwise fields; 1% catches spurious numerical viscosity (e.g. an LBM viscosity off by the 1/2 in nu = c_s^2 (tau - 1/2) dt gives a large miss).' }
   });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* js/overlays.js */
+/* Orchestrator-owned adapters: tell the UI which reference curves to overlay on which plot.
+ * Reference data and functions stay untouched in references/*.js (researcher-owned). */
+(function (LAB) {
+  'use strict';
+  function ov(id, spec, label) {
+    var r = LAB.references[id];
+    if (!r) { LAB.problems.push({ kind: 'overlay', id: id, msg: 'reference not registered' }); return; }
+    r.overlay = spec;
+    if (label) r.label = label;
+  }
+
+  /* cavity: Ghia (1982) tables, Erturk (2005) at Re = 1000 */
+  ov('cavity-re100-ghia-u', { plot: 'u_vcl', x: 'u', y: 'y', when: { Re: 100 } }, 'Ghia et al. 1982');
+  ov('cavity-re100-ghia-v', { plot: 'v_hcl', x: 'x', y: 'v', when: { Re: 100 } }, 'Ghia et al. 1982');
+  ov('cavity-re1000-ghia-u', { plot: 'u_vcl', x: 'u', y: 'y', when: { Re: 1000 } }, 'Ghia et al. 1982');
+  ov('cavity-re1000-ghia-v', { plot: 'v_hcl', x: 'x', y: 'v', when: { Re: 1000 } }, 'Ghia et al. 1982');
+
+  /* Taylor–Green: KE(t)/KE0 from the analytic decay */
+  var tgk = LAB.references['tgv-kinetic-energy'];
+  ov('tgv-kinetic-energy', { plot: 'ke', sample: 't', eval: function (t, _t, p) { return tgk.fn(0, t, p) / tgk.fn(0, 0, p); } }, 'exact exp(−4νk²t)');
+
+  /* cylinder: published Schäfer–Turek ranges as bands */
+  ov('cylinder-2d2-cdmax', { plot: 'cd', when: { Re: 100 } });
+  ov('cylinder-2d2-clmax', { plot: 'cl', when: { Re: 100 } });
+  ov('cylinder-2d1-cd', { plot: 'cd', when: { Re: 20 } });
+  ov('cylinder-2d1-cl', { plot: 'cl', when: { Re: 20 } });
+
+  /* Sod: exact Riemann solution on each profile panel */
+  var sod = LAB.references['sod-exact-profile'];
+  if (sod) {
+    ['rho', 'u', 'p'].forEach(function (f) {
+      var clone = Object.create(sod);
+      clone.id = 'sod-exact-' + f + '-overlay';
+      clone.overlay = { plot: f, field: f, range: [0, 1] };
+      clone.label = 'exact Riemann';
+      LAB.references[clone.id] = clone;
+    });
+  }
+
+  /* shallow-water dam break: Stoker (falls back to Ritter when hr = 0) */
+  var sto = LAB.references['swe-dambreak-stoker'];
+  if (sto) {
+    ['h', 'u'].forEach(function (f) {
+      var c = Object.create(sto);
+      c.id = 'swe-exact-' + f + '-overlay';
+      c.overlay = { plot: f, field: f };
+      c.label = 'Stoker / Ritter exact';
+      LAB.references[c.id] = c;
+    });
+  }
+
+  /* 2D dam break: Martin & Moyce data (two column widths), Koshizuka & Oka, Ritter bound */
+  ov('dam-break-mm-front-a225', { plot: 'front', x: 'T', y: 'Z' });
+  ov('dam-break-mm-front-a1125', { plot: 'front', x: 'T', y: 'Z' });
+  ov('dam-break-ko-front', { plot: 'front', x: 'T', y: 'Z' });
+  var rit = LAB.references['dam-break-ritter-front-bound'];
+  if (rit) ov('dam-break-ritter-front-bound', { plot: 'front', sample: 't', eval: function (T) { return rit.fn(T, null, {}); } }, 'Ritter bound 1 + 2T');
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
@@ -1947,6 +2490,68 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
       };
       return sim;
     }
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/stormer-verlet@kepler-e06.js */
+/* Verification record: stormer-verlet @ kepler-e06. Reviewer: reviewer-pilot (not the builder).
+ * Numbers from verification/checks/stormer-verlet@kepler-e06.check.js; report in
+ * verification/reports/stormer-verlet@kepler-e06.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'stormer-verlet@kepler-e06',
+    method: 'stormer-verlet', scene: 'kepler', experiment: 'kepler-e06',
+    status: 'matched',
+    claim: 'Störmer–Verlet on Kepler (e = 0.6) reproduces the theoretical behaviour stated by Hairer–Lubich–Wanner: ' +
+      'order-2 energy and global error (observed 2.001 / 1.9995 against the exact Kepler solution), bounded energy error with no drift ' +
+      'over 1000 periods (rel. max 7.41e-4 at h = 0.01, envelope slope -2.2e-13 per period), linear global-error growth (k = 1.001), ' +
+      'and angular momentum conserved to round-off (max |L - L0| = 6.8e-14).',
+    conditions: {
+      e: 0.6, order_protocol: 't_end = 10.5T (apocentre), h = 1e-2, 5e-3, 2.5e-3',
+      growth_protocol: 'h = 1e-2, t1 = 10.5T, t2 = 40.5T (also 10.5T..160.5T fit)',
+      long_run: 'h = 1e-2, 1000 periods (628319 steps)', large_h_info: 'h = 0.05, 0.1, 0.2 for 100 periods',
+      reversibility: 'N steps at +h then N steps at -h (setParam), N = 6597 and 62832',
+      check: 'verification/checks/stormer-verlet@kepler-e06.check.js'
+    },
+    reference: ['kepler-exact-solution', 'kepler-H0', 'kepler-L0', 'kepler-order-energy-stormer-verlet',
+      'kepler-order-global-stormer-verlet', 'kepler-growth-global-stormer-verlet', 'kepler-growth-energy-stormer-verlet',
+      'kepler-L-conservation'],
+    gaps: [
+      { quantity: 'observed order of max energy error, h=1e-2 -> 5e-3 (theory 2)', value: 2.0006, tolerance: 0.3, unit: '|p_obs - 2|: 0.0006', pass: true },
+      { quantity: 'observed order of global error at t_N ~ 10.5T, h=1e-2 -> 5e-3 (theory 2)', value: 1.9995, tolerance: 0.3, unit: '|p_obs - 2|: 0.0005', pass: true },
+      { quantity: 'observed order of max energy error, h=5e-3 -> 2.5e-3 (theory 2)', value: 2.0001, tolerance: 0.3, unit: 'order', pass: true },
+      { quantity: 'observed order of global error, h=5e-3 -> 2.5e-3 (theory 2)', value: 2.0000, tolerance: 0.3, unit: 'order', pass: true },
+      { quantity: 'time-growth exponent of global error, 10.5T -> 40.5T, h=1e-2 (theory 1)', value: 1.0007, tolerance: 0.3, unit: 'exponent', pass: true },
+      { quantity: 'time-growth exponent of max energy error, 10.5T -> 40.5T, h=1e-2 (theory 0)', value: 1.75e-8, tolerance: 0.3, unit: 'exponent', pass: true },
+      { quantity: 'max |L_n - L0| over all runs (h <= 1e-2, up to 1000T)', value: 6.79e-14, tolerance: 1e-12, unit: 'abs', pass: true },
+      { quantity: '|H(y0) - H0| and |L(y0) - L0| (initial conditions)', value: 0, tolerance: 1e-14, unit: 'abs', pass: true }
+    ],
+    checks: [
+      { name: 'energy, long run (bounded, no drift)', status: 'pass',
+        detail: '1000 periods at h=0.01: per-period max |dH|/|H0| between 7.41356e-4 and 7.41361e-4; LSQ slope -2.2e-13/period ' +
+          '(projected change over run -3e-7 of the mean); last-100 max <= first-100 max. Non-symplectic Heun baseline at same h drifts at 2.0e-4/period (12x in 100T). ' +
+          'Reviewer criterion: |slope*1000T| < 5% of mean and last-100 max <= 1.05 x first-100 max.' },
+      { name: 'angular momentum conservation', status: 'pass', detail: 'max |L-L0| = 6.8e-14 over 1000T (tol 1e-12, kepler-L-conservation)' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/divergence in any run. Info: 100T at h=0.05/0.1/0.2 stay bounded, rel. max energy error 1.9e-2 / 7.8e-2 / 0.51; L still conserved (<1.4e-14); orbit phase error O(1). No reference criterion for large h.' },
+      { name: 'quantitative (orders, growth)', status: 'pass', detail: 'all four order/growth references within +-0.3; apocentre log-log fit 10.5T..160.5T gives k = 1.007' },
+      { name: 'sampling sensitivity (whole period 10T)', status: 'pass', detail: 'info: orders at t_end = 10T are 2.0006 (energy), 1.977 / 1.998 (global); conclusion not sensitive to apocentre vs pericentre sampling at these h' },
+      { name: 'time reversibility', status: 'pass', detail: 'forward N steps at +h, back N at -h: |y - y0| = 1.3e-11 (N=6597), 2.4e-10 (N=62832); round-off level. Structural extra check, not tied to a reference.' }
+    ],
+    missing: [
+      'All theoretical references cite sources registered verified:false (search-snippet access only; hlw2003, hlw2006, hairer1999notes PDFs unreachable). ' +
+        'The cited section/theorem locations (hlw2003 Sec. 4-5, hlw2006 Thm IX.8.1 / Sec. X.3) are unverified.',
+      'No numeric values from HLW figures (e.g. energy-error amplitude at a given h) were extracted, so the result is checked against theoretical orders/growth laws ' +
+        'and an analytically derived exact solution, not against published figure numbers.',
+      'Order/growth protocols (h, t_end, apocentre sampling) are the researcher\'s pilot choices, not source protocols.',
+      'Long-run drift criterion (5% of mean envelope over 1000T) is reviewer-set; no source gives a numeric drift bound.',
+      'Matched status rests on the reference values being standard, uncontested theory (order 2, bounded energy, linear growth, exact L) evaluated against an independently tested exact solution; re-review if full-text access changes any cited claim or protocol.'
+    ],
+    reviewer: 'reviewer-pilot', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'All 8 quantitative gaps within tolerance; energy bounded without drift over 1000T; L conserved to 7e-14; stable; reversible. Sources snippet-only (verified:false), recorded in missing.' } ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
@@ -2115,12 +2720,12 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
         if (r.kind === 'table') {
           var ix = r.columns.indexOf(o.x), iy = r.columns.indexOf(o.y);
           out.push({ label: r.label || ('ref: ' + (LAB.sources[r.source] ? shortCite(LAB.sources[r.source]) : r.source)), x: r.rows.map(function (row) { return row[ix]; }), y: r.rows.map(function (row) { return row[iy]; }), color: C.ref, points: true });
-        } else if (r.kind === 'function' && typeof r.fn === 'function') {
+        } else if (r.kind === 'function' && (typeof r.fn === 'function' || o.eval)) {
           var xs = [], ys = [], n = 400, lo, hi;
           if (o.sample === 't') { lo = 0; hi = Math.max(t, 1e-6) * (o.ahead || 1.0); }
           else { lo = o.range ? o.range[0] : Math.min.apply(null, xsSim); hi = o.range ? o.range[1] : Math.max.apply(null, xsSim); }
           for (var i = 0; i <= n; i++) {
-            var xv = lo + (hi - lo) * i / n, v = o.sample === 't' ? r.fn(xv, S.params) : r.fn(xv, t, S.params);
+            var xv = lo + (hi - lo) * i / n, v = o.eval ? o.eval(xv, t, S.params) : o.sample === 't' ? r.fn(xv, S.params) : r.fn(xv, t, S.params);
             if (o.field && v) v = v[o.field];
             xs.push(xv); ys.push(o.transform ? o.transform(v, S) : v);
           }
@@ -2336,7 +2941,7 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     var e = '<p class="small" style="margin-top:0">' + esc(m.summary || '') + '</p>';
     (m.equations || []).forEach(function (q) {
       var html; try { html = window.katex ? katex.renderToString(q.tex, { displayMode: true, throwOnError: false }) : null; } catch (er) { html = null; }
-      e += '<div class="eq"><div class="lab"><span>' + esc(q.label) + '</span><span>' + srcLink(q.source, q.location) + '</span></div><div class="tex' + (html ? '' : ' raw') + '">' + (html || esc(q.tex)) + '</div></div>';
+      e += '<div class="eq"><div class="eq-h"><span>' + esc(q.label) + '</span><span>' + srcLink(q.source, q.location) + '</span></div><div class="tex' + (html ? '' : ' raw') + '">' + (html || esc(q.tex)) + '</div></div>';
     });
     $('r-eq').innerHTML = e;
     var sc = m.scenes[S.scene] || {};

@@ -72,6 +72,17 @@ order.global.pass = within(order.global.p_h_h2, refOG);
 order.energy.pass_h2_h4 = within(order.energy.p_h2_h4, refOE);
 order.global.pass_h2_h4 = within(order.global.p_h2_h4, refOG);
 
+/* ---- check b': sampling sensitivity (information): same orders at a whole period t_end = 10T (pericentre) */
+const ordW = hs.map(h => {
+  const N = Math.round(10 * T / h);
+  const r = run(h, N, [{ n: N, key: 'end' }]);
+  return { h, N, dH: r.dH, err: r.errAt.end };
+});
+order.wholePeriod10T = {
+  energy_p_h_h2: log2(ordW[0].dH / ordW[1].dH), global_p_h_h2: log2(ordW[0].err / ordW[1].err),
+  global_p_h2_h4: log2(ordW[1].err / ordW[2].err), runs: ordW
+};
+
 /* ---- check c: growth exponents, h = 1e-2, t1 = 10.5T, t2 = 40.5T (apocentre) */
 const refGG = R['kepler-growth-global-stormer-verlet'], refGE = R['kepler-growth-energy-stormer-verlet'];
 const gp = refGG.protocol, hG = gp.h;

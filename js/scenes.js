@@ -66,12 +66,14 @@
   LAB.registerScene({
     id: 'swe-dambreak',
     title: '1D shallow-water dam break',
-    domain: 'Channel with a dam at x0; still water h_L upstream, h_R ≥ 0 downstream, g = 9.81.',
+    domain: 'Channel [0, L] with a dam at x0; still water h_l upstream, h_r ≥ 0 downstream, g = 9.81. Params: hl, hr, x0, L, g.',
     nondim: 'Dimensional (SI). Ritter (h_R = 0) and Stoker (h_R > 0) analytic solutions.',
     probes: ['profile', 'totals'],
     experiments: [
-      { id: 'swe-wet', title: 'Wet bed (Stoker)', params: { hR: 0.5 }, quantity: 'h(x), u(x) vs Stoker solution' },
-      { id: 'swe-dry', title: 'Dry bed (Ritter)', params: { hR: 0 }, quantity: 'h(x), u(x) vs Ritter solution' }
+      { id: 'swe-wet', title: 'Wet bed (Stoker), SWASHES 4.1.1, t = 6 s', params: { hl: 0.005, hr: 0.001, x0: 5, L: 10 },
+        quantity: 'h(x), u(x) vs Stoker solution; plateau depth h_m' },
+      { id: 'swe-dry', title: 'Dry bed (Ritter), SWASHES 4.1.2, t = 6 s', params: { hl: 0.005, hr: 0, x0: 5, L: 10 },
+        quantity: 'h(x), u(x) vs Ritter solution; front position' }
     ],
     overlays: {
       h: { probe: 'profile', x: 'x', y: 'h', label: 'h' },
