@@ -100,7 +100,7 @@
     id: 'dam-break-ritter-front-bound',
     scene: 'dam-break',
     quantity: 'upper bound on surge front: Z_max(T) = 1 + 2T (front speed 2*sqrt(g*H0), H0 = 2a), Martin & Moyce units',
-    source: 'ritter1892',
+    source: 'ritter1892-pysph',
     location: 'Dry-bed Ritter solution, front speed 2*sqrt(g*h0); formula as implemented in PySPH examples/shallow_water/rectangular_dambreak.py pos_actual() with h=0',
     kind: 'function',
     // fn(T) -> Z bound.  params optional: { H0_over_a: 2 } for other aspect ratios.

@@ -1,0 +1,140 @@
+{
+  "group": "hyperbolic conservation laws (1D Euler, 1D shallow water)",
+  "researcher": "hyp researcher agent",
+  "date": "2026-10-13",
+  "access_summary": "arxiv.org, HAL, publishers, readthedocs and university hosts were DNS-blocked. Full text was read only from GitHub clones (sodshock, clawpack/riemann, clawpack/riemann_book, Zingale numerical_exercises, SWIFT tests) and a PyPI sdist (tilupy). Toro 2009, Toro-Spruce-Speares 1994, Sod 1978, HLL 1983, Einfeldt 1988, Ritter 1892, Stoker 1957 were not read; their content is cited through those open secondary copies. SWASHES (arXiv:1110.0288) itself was not reachable.",
+  "methods": [
+    {
+      "id": "lax-friedrichs",
+      "name": "Lax-Friedrichs (first order, global wave speed)",
+      "sources": ["lax1954", "riemannbook2020", "zingale-cha"],
+      "equations": [
+        { "label": "Conservation law", "tex": "U_t + F(U)_x = 0,\\quad U=(\\rho,\\rho u,E)^T,\\; F=(\\rho u,\\rho u^2+p,u(E+p))^T,\\; p=(\\gamma-1)(E-\\tfrac12\\rho u^2)", "source": "zingale-cha", "location": "Euler/Euler-methods.tex, flux vector in Sec. 'Riemann solvers' (verified)" },
+        { "label": "LF as two-wave approximate Riemann solver", "tex": "-s_1=s_2=a,\\qquad q_m=-\\frac{f(q_r)-f(q_\\ell)}{2a}+\\frac{q_r+q_\\ell}{2}", "source": "riemannbook2020", "location": "Approximate_solvers.ipynb, cell 13 'Lax-Friedrichs (LF) and local-Lax-Friedrichs (LLF)' (verified)" },
+        { "label": "LF numerical flux (global LF: a = dx/dt)", "tex": "F_{i+1/2}=\\tfrac12\\big(F(U_i)+F(U_{i+1})\\big)-\\tfrac{a}{2}\\,(U_{i+1}-U_i),\\qquad a=\\Delta x/\\Delta t", "source": "lax1954", "location": "derived by us from the riemannbook2020 two-wave form (flux = f(q_l) + s_1 (q_m - q_l)); a = dx/dt identification is our derivation, not seen in a source" },
+        { "label": "Classic LF update", "tex": "U_i^{n+1}=\\tfrac12\\big(U_{i-1}^n+U_{i+1}^n\\big)-\\frac{\\Delta t}{2\\Delta x}\\big(F(U_{i+1}^n)-F(U_{i-1}^n)\\big)", "source": "lax1954", "location": "standard form; original not read (verified: false); equivalent to the flux above with a = dx/dt" },
+        { "label": "Local LF / Rusanov speed", "tex": "a_{i+1/2}=\\max\\big(|u_i|+c_i,\\;|u_{i+1}|+c_{i+1}\\big)", "source": "riemannbook2020", "location": "Approximate_solvers.ipynb cell 13 (scalar form a = max|f'(q)| between q_l and q_r; system form with |u|+c is our specialisation)" }
+      ],
+      "assumptions": ["Ideal gas gamma-law EOS (gamma = 1.4)", "Uniform grid, explicit time stepping", "Smooth or weak solutions; scheme is monotone, first order, very diffusive"],
+      "discretization": "Cell averages on uniform grid; staggered-in-effect centred scheme; global LF has odd-even decoupling in constant states (cells i and i+1 do not communicate directly).",
+      "boundary_conditions": "Transmissive (zero-gradient ghost cells) at x=0 and x=1 for sod; waves do not reach the boundaries by t=0.2.",
+      "stability": "CFL: dt * max_i(|u_i|+c_i) / dx <= 1 (domain of dependence; riemannbook2020 Approximate_solvers.ipynb cell 5 states the CFL requirement for Godunov-type methods; LF stability |a dt/dx|<=1 is standard, original not read). Researcher calibration ran at CFL 0.9.",
+      "reference_experiments": [
+        { "id": "sod-t0.2", "scene": "sod", "references": ["sod-exact-profile-laxfriedrichs-band", "sod-totals", "sod-pstar"], "protocol": "N = 100, 200, 400; CFL 0.9; t = 0.2; L1(rho) vs exact; mass/energy conserved to round-off, momentum = 0.9 t" }
+      ],
+      "missing": ["Lax 1954 original not read; classic update quoted from standard form", "No published L1 error table for LF on Sod; band from researcher calibration (2.85e-2, 2.02e-2, 1.36e-2 at N=100/200/400)"]
+    },
+    {
+      "id": "hllc-godunov",
+      "name": "Godunov finite-volume method with HLLC flux (first order); exact Riemann solver as reference",
+      "sources": ["toro1994hllc", "toro2009", "clawpack-riemann", "einfeldt1988", "zingale-cha", "riemannbook2020"],
+      "equations": [
+        { "label": "Conservative update", "tex": "U_i^{n+1}=U_i^n+\\frac{\\Delta t}{\\Delta x}\\big(F_{i-1/2}-F_{i+1/2}\\big)", "source": "zingale-cha", "location": "Euler/Euler-methods.tex Sec. 'Conservative update' (verified)" },
+        { "label": "Godunov flux", "tex": "F_{i-1/2}=f\\big(Q^*_{i-1/2}\\big),\\; Q^*=\\text{Riemann solution of }(Q_{i-1},Q_i)\\text{ on }x/t=0", "source": "riemannbook2020", "location": "Approximate_solvers.ipynb cell 5 'Godunov's method' (verified)" },
+        { "label": "HLLC contact speed", "tex": "S_*=\\frac{p_R-p_L+\\rho_L u_L(S_L-u_L)-\\rho_R u_R(S_R-u_R)}{\\rho_L(S_L-u_L)-\\rho_R(S_R-u_R)}", "source": "clawpack-riemann", "location": "riemann/euler_1D_py.py euler_hllc_1D docstring (verified); Toro 2009 Ch. 10 (eq. number not verified)" },
+        { "label": "HLLC star states", "tex": "U_{*K}=\\rho_K\\frac{S_K-u_K}{S_K-S_*}\\begin{pmatrix}1\\\\S_*\\\\ \\frac{E_K}{\\rho_K}+(S_*-u_K)\\big(S_*+\\frac{p_K}{\\rho_K(S_K-u_K)}\\big)\\end{pmatrix},\\;K=L,R", "source": "clawpack-riemann", "location": "euler_hllc_1D docstring 'left/right middle state' (verified)" },
+        { "label": "HLLC flux selection", "tex": "F^{hllc}=\\begin{cases}F_L & 0\\le S_L\\\\ F_L+S_L(U_{*L}-U_L) & S_L\\le0\\le S_*\\\\ F_R+S_R(U_{*R}-U_R) & S_*\\le0\\le S_R\\\\ F_R & 0\\ge S_R\\end{cases}", "source": "toro2009", "location": "Ch. 10 HLLC flux (recollection; equivalent to clawpack's wave decomposition amdq/apdq, verified by our derivation)" },
+        { "label": "Wave-speed estimate (Einfeldt / Roe-based)", "tex": "S_L=\\min(u_L-c_L,\\hat u-\\hat c),\\quad S_R=\\max(u_R+c_R,\\hat u+\\hat c)", "source": "einfeldt1988", "location": "riemannbook2020 Euler_approximate.ipynb cell 26 (verified); clawpack euler_hllc_1D 'Compute Einfeldt speeds'" },
+        { "label": "Wave-speed estimate (Davis, simple)", "tex": "S_L=\\min(u_L-c_L,u_R-c_R),\\quad S_R=\\max(u_L+c_L,u_R+c_R)", "source": "toro2009", "location": "Ch. 10 wave-speed estimates (recollection, NOT verified); used in researcher calibration run" },
+        { "label": "Exact solver: pressure function", "tex": "f(p)=f_L(p;W_L)+f_R(p;W_R)+u_R-u_L=0,\\; u_*=\\tfrac12(u_L+u_R)+\\tfrac12\\big(f_R(p_*)-f_L(p_*)\\big)", "source": "toro2009", "location": "Ch. 4 (book not read); same content as zingale-cha Euler-theory.tex 'Finding the Star State' u_{*,L}(p_*) - u_{*,R}(p_*) = 0 (verified)" },
+        { "label": "Exact solver: shock branch", "tex": "p>p_K:\\; f_K=(p-p_K)\\Big[\\frac{A_K}{p+B_K}\\Big]^{1/2},\\;A_K=\\frac{2}{(\\gamma+1)\\rho_K},\\;B_K=\\frac{\\gamma-1}{\\gamma+1}p_K", "source": "zingale-cha", "location": "Euler-theory.tex eq:euler:shockujump (algebraically equivalent form c[2/(gamma(gamma-1))]^{1/2}(1-p/p_s)/(...)^{1/2}; verified)" },
+        { "label": "Exact solver: rarefaction branch", "tex": "p\\le p_K:\\; f_K=\\frac{2c_K}{\\gamma-1}\\Big[\\Big(\\frac{p}{p_K}\\Big)^{(\\gamma-1)/2\\gamma}-1\\Big]", "source": "zingale-cha", "location": "Euler-theory.tex Sec. 'Rarefactions' exercise (verified)" },
+        { "label": "Shock density and speed", "tex": "\\rho_{*K}=\\rho_K\\frac{p_*/p_K+\\frac{\\gamma-1}{\\gamma+1}}{\\frac{\\gamma-1}{\\gamma+1}p_*/p_K+1},\\quad S_K=u_K\\mp c_K\\Big[\\frac{\\gamma+1}{2\\gamma}\\frac{p_*}{p_K}+\\frac{\\gamma-1}{2\\gamma}\\Big]^{1/2}", "source": "zingale-cha", "location": "Euler-theory.tex eq:euler:shockrhojump, eq:euler:shockspeedjump (verified)" },
+        { "label": "Rarefaction fan (left)", "tex": "u=\\frac{2}{\\gamma+1}\\Big(c_L+\\frac{\\gamma-1}{2}u_L+\\frac{x}{t}\\Big),\\;\\rho=\\rho_L\\Big[\\frac{2}{\\gamma+1}+\\frac{\\gamma-1}{(\\gamma+1)c_L}\\Big(u_L-\\frac{x}{t}\\Big)\\Big]^{2/(\\gamma-1)}", "source": "toro2009", "location": "Ch. 4 sampling (recollection); follows from u + 2c/(gamma-1) = const and p/rho^gamma = const in zingale-cha 'Rarefactions' (verified), plus c = u - x/t inside the fan" }
+      ],
+      "assumptions": ["Ideal gas, gamma = 1.4", "No vacuum generated: 2(c_L+c_R)/(gamma-1) > u_R - u_L", "First-order piecewise-constant reconstruction"],
+      "discretization": "Cell-centred finite volume, piecewise constant states, HLLC flux at each face, forward Euler in time.",
+      "boundary_conditions": "Transmissive (copy of boundary cell into ghost cell).",
+      "stability": "dt <= C dx / max_i(|u_i|+c_i), C <= 1 (zingale-cha 'Conservative update': dt < dx/(|u|+c); riemannbook2020 cell 5 CFL). Researcher calibration stable at C = 0.9.",
+      "reference_experiments": [
+        { "id": "sod-t0.2", "scene": "sod", "references": ["sod-exact-profile", "sod-pstar", "sod-ustar", "sod-rhostarL", "sod-rhostarR", "sod-x-shock", "sod-x-contact", "sod-totals"], "protocol": "N = 100, 200, 400; CFL 0.9; t = 0.2; L1(rho) bands 0.021/0.013/0.0085 (first order); plateau values within ~2% at N = 400; observed L1 order ~0.65" },
+        { "id": "sod-modified-t0.2", "scene": "sod", "references": ["sod-modified-exact-profile"], "protocol": "u_L = 0.75, x0 = 0.3, t = 0.2: sonic rarefaction; no entropy glitch expected with HLLC" }
+      ],
+      "missing": ["Toro-Spruce-Speares 1994 and Toro 2009 not read; equation numbers unverified", "Toro Table 4.3 values only via task brief + snippet (p*, u* to 4 decimals) + sodshock (all four to 17 digits)", "No published L1 table for Godunov-HLLC on Sod"]
+    },
+    {
+      "id": "muscl-hancock",
+      "name": "MUSCL-Hancock second-order finite volume (slope-limited, minmod / van Leer) with HLLC flux",
+      "sources": ["toro2009", "vanleer1979", "ader2023", "zingale-cha"],
+      "equations": [
+        { "label": "Limited slope (minmod)", "tex": "\\Delta_i=\\mathrm{minmod}(U_i-U_{i-1},\\,U_{i+1}-U_i),\\quad \\mathrm{minmod}(a,b)=\\begin{cases}a & |a|<|b|,\\,ab>0\\\\ b & |b|<|a|,\\,ab>0\\\\ 0 & \\text{otherwise}\\end{cases}", "source": "zingale-cha", "location": "advection/advection-higherorder.tex, exercise 'Limiting and overshoots' (verified)" },
+        { "label": "Limited slope (van Leer harmonic)", "tex": "\\Delta_i=\\begin{cases}\\dfrac{2\\,\\Delta_-\\Delta_+}{\\Delta_-+\\Delta_+} & \\Delta_-\\Delta_+>0\\\\ 0 & \\text{otherwise}\\end{cases},\\;\\Delta_-=U_i-U_{i-1},\\;\\Delta_+=U_{i+1}-U_i", "source": "vanleer1979", "location": "recollection (van Leer 1974/1979 harmonic limiter); NOT verified against an open text" },
+        { "label": "Boundary-extrapolated values", "tex": "U_i^L=U_i-\\tfrac12\\Delta_i,\\qquad U_i^R=U_i+\\tfrac12\\Delta_i", "source": "ader2023", "location": "search snippet (verified: false); Toro 2009 Sec. 14.4 (not read)" },
+        { "label": "Half-step evolution", "tex": "\\bar U_i^{L,R}=U_i^{L,R}+\\frac{1}{2}\\frac{\\Delta t}{\\Delta x}\\big(F(U_i^L)-F(U_i^R)\\big)", "source": "ader2023", "location": "search snippet describes 'evolved by half a time step using the flux difference across the cell' (verified: false); explicit formula from recollection of Toro 2009 Sec. 14.4" },
+        { "label": "Interface Riemann problem", "tex": "F_{i+1/2}=F^{hllc}\\big(\\bar U_i^R,\\,\\bar U_{i+1}^L\\big),\\quad U_i^{n+1}=U_i^n+\\frac{\\Delta t}{\\Delta x}(F_{i-1/2}-F_{i+1/2})", "source": "toro2009", "location": "Sec. 14.4 (not read); reduces to Godunov when Delta_i = 0 (ader2023 snippet)" }
+      ],
+      "assumptions": ["Ideal gas gamma = 1.4", "Slopes may be limited in conservative, primitive or characteristic variables (choice affects oscillations at the contact; calibration used conservative variables)", "TVD limiter keeps scheme non-oscillatory; second order only in smooth regions"],
+      "discretization": "Piecewise-linear reconstruction, half-step predictor with physical flux, Riemann solve (HLLC) at faces, conservative corrector.",
+      "boundary_conditions": "Transmissive with two ghost cells per side.",
+      "stability": "CFL C <= 1 for MUSCL-Hancock (Toro 2009, recollection, unverified); researcher calibration stable at C = 0.9.",
+      "reference_experiments": [
+        { "id": "sod-t0.2", "scene": "sod", "references": ["sod-exact-profile", "sod-pstar", "sod-ustar", "sod-rhostarL", "sod-rhostarR", "sod-x-contact", "sod-totals"], "protocol": "N = 100, 200, 400; CFL 0.9; minmod; L1(rho) bands 0.0095/0.0052/0.0029; error must be below first-order HLLC at each N; observed order ~0.85" },
+        { "id": "sod-modified-t0.2", "scene": "sod", "references": ["sod-modified-exact-profile"], "protocol": "L1(rho) bands 0.0095 (N=100), 0.0034 (N=400)" },
+        { "id": "swe-stoker", "scene": "swe-dambreak", "references": ["swe-dambreak-stoker", "swe-stoker-hm-swashes"], "protocol": "with HLL flux for SWE: relative L1(h) 0.0052 (N=200), 0.0026 (N=400)" }
+      ],
+      "missing": ["No open full-text copy of Toro Sec. 14.4 found; MUSCL-Hancock steps only from snippets + recollection", "van Leer limiter formula unverified", "No published L1 table"]
+    },
+    {
+      "id": "hll-swe",
+      "name": "HLL finite volume for the 1D shallow-water equations (Einfeldt speeds, wet/dry capable)",
+      "sources": ["hll1983", "einfeldt1988", "clawpack-riemann", "riemannbook2020", "swashes2013"],
+      "equations": [
+        { "label": "Shallow-water equations", "tex": "h_t+(hu)_x=0,\\qquad (hu)_t+\\big(hu^2+\\tfrac12 g h^2\\big)_x=0", "source": "riemannbook2020", "location": "Shallow_water.ipynb (standard form; flux also in clawpack shallow_hll_1D q_hat[1]) (verified)" },
+        { "label": "HLL middle state", "tex": "q_m=\\frac{f(q_r)-f(q_\\ell)-s_2q_r+s_1q_\\ell}{s_1-s_2}", "source": "riemannbook2020", "location": "Shallow_water_approximate.ipynb cell 35 eq. SWA:hll_middle_state (verified); clawpack shallow_hll_1D" },
+        { "label": "HLL flux", "tex": "F^{hll}=\\frac{s_2F_\\ell-s_1F_r+s_1s_2(q_r-q_\\ell)}{s_2-s_1}\\;(s_1<0<s_2);\\;F_\\ell\\text{ if }s_1\\ge0;\\;F_r\\text{ if }s_2\\le0", "source": "hll1983", "location": "derived from the q_m above via F = f(q_l) + s_1 (q_m - q_l) (our derivation; original not read)" },
+        { "label": "Einfeldt speeds with Roe averages", "tex": "\\hat u=\\frac{\\sqrt{h_\\ell}u_\\ell+\\sqrt{h_r}u_r}{\\sqrt{h_\\ell}+\\sqrt{h_r}},\\;\\hat c=\\sqrt{\\tfrac{g}{2}(h_\\ell+h_r)},\\;s_1=\\min(u_\\ell-c_\\ell,\\hat u-\\hat c),\\;s_2=\\max(u_r+c_r,\\hat u+\\hat c)", "source": "clawpack-riemann", "location": "riemann/shallow_1D_py.py shallow_hll_1D lines ~127-142; riemannbook2020 Shallow_water_approximate.ipynb cell 35 (verified)" },
+        { "label": "Dry-front speeds", "tex": "h_\\ell=0:\\;s_1=u_r-2c_r;\\qquad h_r=0:\\;s_2=u_\\ell+2c_\\ell", "source": "riemannbook2020", "location": "follows from the Riemann invariant u + 2c (exact_solvers/shallow_water.py dry_velocity_l = u_l + 2 sqrt(g h_l)) (verified); Toro 2001 free-surface book not read" },
+        { "label": "Ritter dry-bed solution", "tex": "h=\\frac{4}{9g}\\Big(\\sqrt{gh_l}-\\frac{x-x_0}{2t}\\Big)^2,\\;u=\\frac23\\Big(\\frac{x-x_0}{t}+\\sqrt{gh_l}\\Big)\\text{ for }x_0-t\\sqrt{gh_l}<x\\le x_0+2t\\sqrt{gh_l}", "source": "swashes2013", "location": "Sec. 4.1.2 (via tilupy Ritter_dry; SWASHES equation numbers not verified)" },
+        { "label": "Stoker c_m equation (corrected)", "tex": "-8gh_rc_m^2\\big(\\sqrt{gh_l}-c_m\\big)^2+\\big(c_m^2-gh_r\\big)^2\\big(c_m^2+gh_r\\big)=0,\\quad h_m=c_m^2/g,\\;u_m=2(\\sqrt{gh_l}-c_m)", "source": "swashes2013", "location": "Sec. 4.1.1 (via tilupy, which prints (g h_l - c_m^2)^2: dimensionally inconsistent; corrected form derived from riemannbook2020 integral curve + Hugoniot locus and verified numerically)" },
+        { "label": "Stoker wave positions", "tex": "x_A=x_0-t\\sqrt{gh_l},\\;x_B=x_0+t\\big(2\\sqrt{gh_l}-3c_m\\big),\\;x_C=x_0+t\\frac{2c_m^2(\\sqrt{gh_l}-c_m)}{c_m^2-gh_r}", "source": "swashes2013", "location": "Sec. 4.1.1 via tilupy Stoker_SWASHES_wet.xa/xb/xc (verified against RH mass jump)" }
+      ],
+      "assumptions": ["Flat, frictionless bed", "Hydrostatic pressure (shallow water)", "g = 9.81 m/s^2", "h >= 0; positivity of HLLE for first order (riemannbook2020 cell 52)"],
+      "discretization": "Cell-centred FV, HLL(E) flux, forward Euler; second order via MUSCL-Hancock with positivity fallback to first order where reconstructed h < 0.",
+      "boundary_conditions": "Transmissive. Default SWASHES config: [0,10] m, x0 = 5 m; waves stay inside by T = 6 s (Ritter front 7.66 m, Stoker shock 6.26 m, rarefaction head 3.67 m).",
+      "stability": "dt <= C dx / max(|u|+sqrt(g h)), C <= 1; calibration at C = 0.9. HLLE preserves positivity (riemannbook2020 Shallow_water_approximate.ipynb cell 52).",
+      "reference_experiments": [
+        { "id": "swe-ritter", "scene": "swe-dambreak", "references": ["swe-dambreak-ritter", "swe-dambreak-totals"], "protocol": "hl = 0.005, hr = 0, x0 = 5, L = 10, T = 6 s; relative L1(h) bands 0.017 (N=200), 0.010 (N=400) first order" },
+        { "id": "swe-stoker", "scene": "swe-dambreak", "references": ["swe-dambreak-stoker", "swe-stoker-hm-swashes", "swe-dambreak-totals"], "protocol": "hl = 0.005, hr = 0.001, x0 = 5, L = 10, T = 6 s; relative L1(h) 0.0126 (N=200), 0.0073 (N=400) first order; plateau h_m = 2.5394e-3 within 1%" },
+        { "id": "swe-stoker-unit", "scene": "swe-dambreak", "references": ["swe-dambreak-stoker", "swe-stoker-hm-unit"], "protocol": "alternative unit config hl = 1, hr = 0.1, x0 = 0.5, L = 1, t = 0.05 (BrowserLab choice)" }
+      ],
+      "missing": ["SWASHES PDF not read: equation numbers, Stoker hr = 0.001 and T = 6 s unverified", "Ritter 1892 and Stoker 1957 originals not read", "No published L1 tables for HLL on dam breaks"]
+    }
+  ],
+  "scenes": [
+    {
+      "id": "sod",
+      "setup": { "gamma": 1.4, "domain": [0, 1], "x0": 0.5, "left": { "rho": 1, "u": 0, "p": 1 }, "right": { "rho": 0.125, "u": 0, "p": 0.1 }, "t_end": 0.2, "bc": "transmissive" },
+      "setup_sources": ["sod1978", "sodshock2015", "zingale-cha"],
+      "variant": { "name": "Toro modified Sod (Test 1)", "x0": 0.3, "left": { "rho": 1, "u": 0.75, "p": 1 }, "right": { "rho": 0.125, "u": 0, "p": 0.1 }, "t_end": 0.2, "source": "mackey-shocktubes (search snippet), toro2009 (not read)" },
+      "published_values": {
+        "p_star": { "value": 0.30313, "source": "toro2009 Table 4.3 (via brief); rusanov2024 snippet 0.3031; sodshock2015 0.30313017805064707" },
+        "u_star": { "value": 0.92745, "source": "toro2009 (via brief); rusanov2024 snippet 0.9274; sodshock2015 0.92745262004895057" },
+        "rho_star_L": { "value": 0.42632, "source": "toro2009 (via brief); sodshock2015 0.42631942817849544" },
+        "rho_star_R": { "value": 0.26557, "source": "toro2009 (via brief); sodshock2015 0.26557371170530725" },
+        "positions_t0.2": { "shock": 0.8504311464060357, "contact": 0.6854905240097902, "rarefaction_head": 0.26335680867601535, "rarefaction_tail": 0.4859454374877634, "source": "sodshock2015 README" }
+      },
+      "computed_values": { "modified_sod_star": { "p": 0.4662935668, "u": 1.360905519, "rho_L": 0.5798666875, "rho_R": 0.3397002349, "note": "computed by references/sod.js; no open published value found" } },
+      "reference_ids": ["sod-exact-profile", "sod-exact-profile-laxfriedrichs-band", "sod-modified-exact-profile", "sod-pstar", "sod-ustar", "sod-rhostarL", "sod-rhostarR", "sod-x-shock", "sod-x-contact", "sod-x-rarefaction-head", "sod-x-rarefaction-tail", "sod-totals"]
+    },
+    {
+      "id": "swe-dambreak",
+      "setup": { "g": 9.81, "domain": [0, 10], "x0": 5, "hl": 0.005, "hr_wet": 0.001, "hr_dry": 0, "u0": 0, "t_end": 6, "bc": "transmissive", "note": "SWASHES config; hl, x0, L from snippets; hr_wet and t_end from recollection (unverified)" },
+      "alt_setup": { "g": 9.81, "domain": [0, 1], "x0": 0.5, "hl": 1, "hr_wet": 0.1, "hr_dry": 0, "t_end": 0.05, "note": "BrowserLab unit-domain choice, not from a source" },
+      "setup_sources": ["swashes2013", "fullswof2014", "tilupy2025"],
+      "computed_values": {
+        "stoker_swashes": { "c_m": 0.157832486707, "h_m": 0.00253935717228, "u_m": 0.127279718393, "shock_speed": 0.209963400052 },
+        "stoker_unit": { "c_m": 1.97141445485, "h_m": 0.396174816799, "u_m": 2.32135499564, "shock_speed": 3.10513365067 },
+        "note": "computed by references/swe-dambreak.js; confirmed by an independent Hugoniot/integral-curve bisection solver to 1e-15 relative; not published values"
+      },
+      "reference_ids": ["swe-dambreak-ritter", "swe-dambreak-stoker", "swe-stoker-hm-swashes", "swe-stoker-hm-unit", "swe-dambreak-totals"]
+    }
+  ],
+  "convergence_expectations": {
+    "published": "None retrieved. Search found leads (ANU Fyris Sod convergence page, NTNU 2016 HLL supplement, arXiv gr-qc/0512104 relativistic first-order rates 0.58-0.70) but none reachable or applicable; nothing recorded as a published number.",
+    "researcher_calibration": {
+      "sod_L1_rho": { "lax-friedrichs": [0.02848, 0.02017, 0.01363], "godunov-hllc": [0.01475, 0.009366, 0.005970], "muscl-hancock-minmod-hllc": [0.006581, 0.003581, 0.001997], "N": [100, 200, 400] },
+      "observed_orders": { "lax-friedrichs": "0.50-0.57", "godunov-hllc": "0.65", "muscl-hancock": "0.84-0.88" },
+      "note": "Orders below 1 are expected for solutions with contacts (first-order contact smearing ~ N^-1/2) and shocks; textbook statements (first order ~N^-1/2 at contacts, ~N^-2/3 for second order) are recollection, not sourced."
+    }
+  }
+}

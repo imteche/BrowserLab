@@ -78,7 +78,7 @@
   });
 
   LAB.registerSource({
-    id: 'ritter1892',
+    id: 'ritter1892-pysph',
     title: 'Die Fortpflanzung der Wasserwellen',
     authors: 'A. Ritter',
     year: 1892,
