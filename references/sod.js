@@ -142,8 +142,8 @@
     params: { t: 0.2, x: [0, 1] },
     tolerance: {
       metric: 'L1-density',
-      value: { 'first-order N=100': 0.025, 'first-order N=200': 0.015, 'first-order N=400': 0.009,
-               'second-order N=100': 0.012, 'second-order N=200': 0.0065, 'second-order N=400': 0.0035 },
+      value: { 'first-order N=100': 0.021, 'first-order N=200': 0.013, 'first-order N=400': 0.0085,
+               'second-order N=100': 0.0095, 'second-order N=200': 0.0052, 'second-order N=400': 0.0029 },
       rationale: 'L1 norm of rho_num - rho_exact over [0,1] at t=0.2 (cell-average of the method vs exact value at cell centre, sum |.|*dx). ' +
         'NO open source with tabulated Sod L1 errors could be retrieved (see research/hyp.md). Values are BrowserLab engineering bands ' +
         'set at ~1.3-1.5x the errors measured with the researcher\'s scratch implementations (Godunov-HLLC first order; MUSCL-Hancock + minmod + HLLC, CFL 0.9): ' +

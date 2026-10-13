@@ -31,7 +31,8 @@ function run(h, N, marks) {
   const sim = mk(h);
   let dH = 0, dL = 0, nan = false;
   const out = {};
-  const markSet = new Map((marks || []).map(m => [m.n, m.key]));
+  const markSet = new Map();   // step index -> list of keys (several keys may share a step)
+  (marks || []).forEach(m => { if (!markSet.has(m.n)) markSet.set(m.n, []); markSet.get(m.n).push(m.key); });
   const dHat = {};
   for (let n = 1; n <= N; n++) {
     sim.step();
@@ -39,7 +40,7 @@ function run(h, N, marks) {
     if (!isFinite(inv.H) || !isFinite(inv.L)) { nan = true; break; }
     dH = Math.max(dH, Math.abs(inv.H - H0));
     dL = Math.max(dL, Math.abs(inv.L - L0));
-    if (markSet.has(n)) { const k = markSet.get(n); out[k] = globalErr(sim); dHat[k] = dH; }
+    if (markSet.has(n)) { const g = globalErr(sim); markSet.get(n).forEach(k => { out[k] = g; dHat[k] = dH; }); }
   }
   return { sim, dH, dL, nan, diverged: sim.diverged(), errAt: out, dHat };
 }
