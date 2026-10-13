@@ -18,6 +18,10 @@
    "detail": "Code changed by refinement → 5 fresh reviewers re-ran every LBM experiment. TG and cylinder 2D-1 moved flagged → matched; cylinder 2D-2 remains flagged (staircase default; interpolated bounce-back option passes). No further defect found, loop closed."
   },
   {
+   "name": "Coverage fill",
+   "detail": "stable-fluids@cavity-re1000 had not been scheduled; one independent reviewer added (flagged: psi_min 48% low, semi-Lagrangian dissipation dominates)."
+  },
+  {
    "name": "Wave 2 · Particle methods",
    "detail": "WCSPH, PBF, MLS-MPM: 3 builders, 4 reviews, 1 refinement (declined: no defect)."
   },
@@ -290,6 +294,13 @@
    "detail": "Stam settings (pIters=20, dt=h) at N=128: u gap 0.116, v gap 0.109 (tol 0.02), psi_min 54% low (tol 3%), centre 0.027 (tol 0.02), net line flux 128% of |psi_min|; stable and steady. Dominant cause: unconverged 20-sweep projection (300 sweeps: u 0.012, v 0.008, psi 5.8%); with converged projection th"
   },
   {
+   "id": "V-stable-fluids@cavity-re1000-r1",
+   "type": "review",
+   "label": "cavity-re1000 · stable-fluids",
+   "status": "flagged",
+   "detail": "Method defaults (N=64, pIters=20, dt=h): u gap 0.208 (Ghia) / 0.220 (Erturk), v gap 0.226 (tol 0.03), psi_min 48% low (tol 3%), line flux 15% of |psi_min|; centre within 0.012 (pass); stable and steady. N=128 Stam is worse (u 0.243, psi 57%). Converged projection only partly helps (psi 42% at N=32, "
+  },
+  {
    "id": "V-stable-fluids@tg-re100-r1",
    "type": "review",
    "label": "tg-re100 · stable-fluids",
@@ -503,6 +514,10 @@
   ],
   [
    "B-stable-fluids",
+   "V-stable-fluids@cavity-re1000-r1"
+  ],
+  [
+   "B-stable-fluids",
    "V-stable-fluids@tg-re100-r1"
   ],
   [
@@ -631,6 +646,10 @@
   ],
   [
    "V-stable-fluids@cavity-re100-r1",
+   "UI"
+  ],
+  [
+   "V-stable-fluids@cavity-re1000-r1",
    "UI"
   ],
   [

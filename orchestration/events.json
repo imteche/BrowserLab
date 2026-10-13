@@ -79,6 +79,10 @@
    "detail": "Code changed by refinement \u2192 5 fresh reviewers re-ran every LBM experiment. TG and cylinder 2D-1 moved flagged \u2192 matched; cylinder 2D-2 remains flagged (staircase default; interpolated bounce-back option passes). No further defect found, loop closed."
   },
   {
+   "name": "Coverage fill",
+   "detail": "stable-fluids@cavity-re1000 had not been scheduled; one independent reviewer added (flagged: psi_min 48% low, semi-Lagrangian dissipation dominates)."
+  },
+  {
    "name": "Wave 2 \u00b7 Particle methods",
    "detail": "WCSPH, PBF, MLS-MPM: 3 builders, 4 reviews, 1 refinement (declined: no defect)."
   },
