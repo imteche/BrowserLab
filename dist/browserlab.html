@@ -918,6 +918,161 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
+<script>/* references/cavity.js */
+/* Lid-driven cavity references (scene 'cavity').
+ * Unit square, lid y=1 moving in +x with U=1, Re = U L / nu. Velocities in units of U_lid.
+ * Ghia et al. (1982) used a 129x129 uniform grid (h = 1/128); the tabulated coordinates are
+ * grid nodes j/128 printed to 4 decimals (e.g. 0.9766 = 125/128, 0.2813 = 36/128).
+ * Provenance: see sources-ins.js (ghia1982 and copy-* entries) and research/ins.md. */
+(function (LAB) {
+  'use strict';
+  var R = function (r) { LAB.registerReference(r); };
+
+  var tolU100 = { metric: 'max-abs', value: 0.02, unit: 'U_lid',
+    rationale: 'Ghia values are 2nd-order FD on a 129^2 grid; independent high-accuracy solutions agree with them to well under 0.01 U at Re=100 (e.g. cfdgasman MAC solver psi_min within 0.1%). 0.02 leaves room for interpolation of the sim profile onto the 17 table points and for O(h^2) error of a ~128^2 run.' };
+  var tolU1000 = { metric: 'max-abs', value: 0.03, unit: 'U_lid',
+    rationale: 'At Re=1000 Ghia (129^2) itself differs from finer references (Erturk 601^2, Botella spectral) by ~0.001-0.01 U (e.g. u(0.5): Ghia -0.06080 vs Erturk -0.0620; psi_min 0.8% apart). Thin lid/wall boundary layers make a 128^2 run under-resolve the near-wall extrema; 0.03 U is a realistic pass band for 128-256 cells.' };
+
+  // ---------------------------------------------------------------- Re = 100
+  R({
+    id: 'cavity-re100-ghia-u', scene: 'cavity',
+    quantity: 'u/U along vertical centerline x=0.5, Re=100', params: { Re: 100 }, probe: 'u_vcl',
+    source: 'ghia1982', location: 'Table I, column Re=100 (via open copies copy-ivanpi-ghia, copy-sujaldave-ghia, copy-cfdgasman-ghia; all identical)',
+    kind: 'table', columns: ['y', 'u'],
+    rows: [[1.0000, 1.00000], [0.9766, 0.84123], [0.9688, 0.78871], [0.9609, 0.73722], [0.9531, 0.68717], [0.8516, 0.23151], [0.7344, 0.00332], [0.6172, -0.13641], [0.5000, -0.20581], [0.4531, -0.21090], [0.2813, -0.15662], [0.1719, -0.10150], [0.1016, -0.06434], [0.0703, -0.04775], [0.0625, -0.04192], [0.0547, -0.03717], [0.0000, 0.00000]],
+    tolerance: tolU100
+  });
+  R({
+    id: 'cavity-re100-ghia-v', scene: 'cavity',
+    quantity: 'v/U along horizontal centerline y=0.5, Re=100', params: { Re: 100 }, probe: 'v_hcl',
+    source: 'ghia1982', location: 'Table II, column Re=100 (via copy-ivanpi-ghia, copy-sujaldave-ghia, copy-cfdgasman-ghia; all identical)',
+    kind: 'table', columns: ['x', 'v'],
+    rows: [[1.0000, 0.00000], [0.9688, -0.05906], [0.9609, -0.07391], [0.9531, -0.08864], [0.9453, -0.10313], [0.9063, -0.16914], [0.8594, -0.22445], [0.8047, -0.24533], [0.5000, 0.05454], [0.2344, 0.17527], [0.2266, 0.17507], [0.1563, 0.16077], [0.0938, 0.12317], [0.0781, 0.10890], [0.0703, 0.10091], [0.0625, 0.09233], [0.0000, 0.00000]],
+    tolerance: tolU100
+  });
+  R({
+    id: 'cavity-re100-ghia-psimin', scene: 'cavity',
+    quantity: 'primary-vortex stream function minimum psi_min (psi=0 on walls, u=dpsi/dy), Re=100', params: { Re: 100 }, probe: 'psi_min',
+    source: 'ghia1982', location: 'Primary-vortex table (Table III per common citation; number unverified), as quoted in copy-cfdgasman-ghia README; 4-digit value -0.10342 also in k-dense.ai report (search snippet)',
+    kind: 'scalar', value: -0.103423, range: null,
+    tolerance: { metric: 'rel', value: 0.03, rationale: 'Ghia vs a Richardson-extrapolated MAC solution differ by 0.09% (cfdgasman README); 3% allows for a 64-128 cell run and for psi reconstructed by integrating u (sign convention: clockwise primary vortex has psi<0 with u=+dpsi/dy).' }
+  });
+  R({
+    id: 'cavity-re100-ghia-center', scene: 'cavity',
+    quantity: 'primary-vortex centre (x, y), Re=100', params: { Re: 100 }, probe: 'vortex_center',
+    source: 'ghia1982', location: 'Vortex-centre table (Table V per copy-sujaldave-ghia ghia_vortex_centers.csv): (0.6171875, 0.734375) = grid node (79,94)/128',
+    kind: 'scalar', value: { x: 0.6172, y: 0.7344 }, range: null,
+    tolerance: { metric: 'max-abs', value: 0.02, rationale: 'Ghia locate the centre only to their grid node (h=1/128=0.0078); single-copy source; allow ~2.5 h.' }
+  });
+
+  // ---------------------------------------------------------------- Re = 1000
+  R({
+    id: 'cavity-re1000-ghia-u', scene: 'cavity',
+    quantity: 'u/U along vertical centerline x=0.5, Re=1000', params: { Re: 1000 }, probe: 'u_vcl',
+    source: 'ghia1982', location: 'Table I, column Re=1000 (via copy-ivanpi-ghia, copy-sujaldave-ghia, copy-xuaoxiqi-ghia; all identical)',
+    kind: 'table', columns: ['y', 'u'],
+    rows: [[1.0000, 1.00000], [0.9766, 0.65928], [0.9688, 0.57492], [0.9609, 0.51117], [0.9531, 0.46604], [0.8516, 0.33304], [0.7344, 0.18719], [0.6172, 0.05702], [0.5000, -0.06080], [0.4531, -0.10648], [0.2813, -0.27805], [0.1719, -0.38289], [0.1016, -0.29730], [0.0703, -0.22220], [0.0625, -0.20196], [0.0547, -0.18109], [0.0000, 0.00000]],
+    tolerance: tolU1000
+  });
+  R({
+    id: 'cavity-re1000-ghia-v', scene: 'cavity',
+    quantity: 'v/U along horizontal centerline y=0.5, Re=1000', params: { Re: 1000 }, probe: 'v_hcl',
+    source: 'ghia1982', location: 'Table II, column Re=1000. Copies identical except x=0.9063: -0.51550 (copy-sujaldave-ghia, copy-xuaoxiqi-ghia) vs -0.51500 (copy-ivanpi-ghia); majority value used',
+    kind: 'table', columns: ['x', 'v'],
+    rows: [[1.0000, 0.00000], [0.9688, -0.21388], [0.9609, -0.27669], [0.9531, -0.33714], [0.9453, -0.39188], [0.9063, -0.51550], [0.8594, -0.42665], [0.8047, -0.31966], [0.5000, 0.02526], [0.2344, 0.32235], [0.2266, 0.33075], [0.1563, 0.37095], [0.0938, 0.32627], [0.0781, 0.30353], [0.0703, 0.29012], [0.0625, 0.27485], [0.0000, 0.00000]],
+    tolerance: tolU1000
+  });
+  R({
+    id: 'cavity-re1000-erturk-u', scene: 'cavity',
+    quantity: 'u/U along vertical centerline x=0.5, Re=1000 (601x601 psi-omega FD, finer than Ghia)', params: { Re: 1000 }, probe: 'u_vcl',
+    source: 'erturk2005', location: 'u-velocity along vertical centerline table, column Re=1000 (table number unverified), via copy-lethe-cavity ref-2d-erturk-u.txt; first 3 values confirmed in search snippet of arXiv:cs/0411047',
+    kind: 'table', columns: ['y', 'u'],
+    rows: [[1.000, 1.0000], [0.990, 0.8486], [0.980, 0.7065], [0.970, 0.5917], [0.960, 0.5102], [0.950, 0.4582], [0.940, 0.4276], [0.930, 0.4101], [0.920, 0.3993], [0.910, 0.3913], [0.900, 0.3838], [0.500, -0.0620], [0.200, -0.3756], [0.180, -0.3869], [0.160, -0.3854], [0.140, -0.3690], [0.120, -0.3381], [0.100, -0.2960], [0.080, -0.2472], [0.060, -0.1951], [0.040, -0.1392], [0.020, -0.0757], [0.000, 0.0000]],
+    tolerance: { metric: 'max-abs', value: 0.03, unit: 'U_lid', rationale: 'Same band as the Ghia Re=1000 table; points within 0.01 of the lid sample the steepest part of the boundary layer, so a 128^2 run will show its largest gap there.' }
+  });
+  R({
+    id: 'cavity-re1000-ghia-psimin', scene: 'cavity',
+    quantity: 'primary-vortex stream function minimum psi_min, Re=1000', params: { Re: 1000 }, probe: 'psi_min',
+    source: 'ghia1982', location: 'Primary-vortex table (Table III per common citation; unverified). -0.117929 per widely quoted value; 4-digit 0.1179 confirmed in search snippet of arXiv:1807.04896 Table A-2 and -0.11793 in k-dense.ai report snippet',
+    kind: 'scalar', value: -0.117929, range: [-0.1189366, -0.117929],
+    rangeNote: 'range spans Ghia (129^2 FD) to Botella & Peyret spectral; Botella value confirmed only to 4 digits (0.1189) from snippet, 7-digit -0.1189366 unverified. Erturk (601^2) gives -0.118781 (snippet).',
+    tolerance: { metric: 'rel', value: 0.03, rationale: 'Published high-accuracy values span 0.1179-0.1189 (0.85%); coarse runs typically under-predict |psi_min| by 1-3% (k-dense snippet reports -0.11547, 2% low).' }
+  });
+  R({
+    id: 'cavity-re1000-erturk-psimin', scene: 'cavity',
+    quantity: 'primary-vortex stream function minimum psi_min, Re=1000 (Erturk 601^2)', params: { Re: 1000 }, probe: 'psi_min',
+    source: 'erturk2005', location: 'primary-vortex properties table, Re=1000 (search snippet of arXiv:cs/0411047: psi -0.118781, omega -2.065530, (0.5300, 0.5650))',
+    kind: 'scalar', value: -0.118781, range: null,
+    tolerance: { metric: 'rel', value: 0.03, rationale: 'As for Ghia psi_min; search-snippet value, single copy.' }
+  });
+  R({
+    id: 'cavity-re1000-ghia-center', scene: 'cavity',
+    quantity: 'primary-vortex centre (x, y), Re=1000', params: { Re: 1000 }, probe: 'vortex_center',
+    source: 'ghia1982', location: 'Vortex-centre table (Table V per copy-sujaldave-ghia: (0.53125, 0.5625)); also (0.5313, 0.5625) in arXiv:1807.04896 Table A-2 snippet. Finer references: Erturk (0.5300, 0.5650), Botella (0.5308, 0.5652)',
+    kind: 'scalar', value: { x: 0.5313, y: 0.5625 }, range: { x: [0.5300, 0.5313], y: [0.5625, 0.5652] },
+    tolerance: { metric: 'max-abs', value: 0.02, rationale: 'Grid-node resolution of Ghia (h=0.0078); finer solutions move the centre by <0.003.' }
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* references/cylinder.js */
+/* DFG "flow around a cylinder" benchmark, 2-D cases (Schafer & Turek 1996), scene 'cylinder'.
+ * Geometry (all in m, rho = 1 kg/m^3, nu = 1e-3 m^2/s):
+ *   channel [0, 2.2] x [0, 0.41]; cylinder D = 0.1 centred at (0.2, 0.2) (NOT on the centreline,
+ *   which is y = 0.205 -> nonzero mean lift); no-slip on y=0, y=0.41 and the cylinder;
+ *   inflow x=0: U(y) = 4 Um y (H - y) / H^2, V = 0, H = 0.41; outflow x=2.2: do-nothing.
+ *   2D-1: Um = 0.3 -> Ubar = 2 Um / 3 = 0.2, Re = Ubar D / nu = 20 (steady).
+ *   2D-2: Um = 1.5 -> Ubar = 1.0, Re = 100 (periodic vortex shedding).
+ * Coefficients: cD = 2 F_D / (rho Ubar^2 D), cL = 2 F_L / (rho Ubar^2 D), St = D f / Ubar,
+ *   dp = p(0.15, 0.2) - p(0.25, 0.2). For 2D-2, dp is taken at t0 + 1/(2f), t0 = time of max cL.
+ * `range` = the published "estimated interval for the exact result" (lower/upper bound rows of
+ *   Schafer & Turek Tables 3 and 4 per the open copies). `value` = later, more precise result
+ *   (source in valueSource). Provenance in sources-ins.js / research/ins.md. */
+(function (LAB) {
+  'use strict';
+  var R = function (r) { LAB.registerReference(r); };
+  var setup21 = { case: '2D-1', Re: 20, Um: 0.3, Ubar: 0.2, nu: 1e-3, D: 0.1, H: 0.41, L: 2.2, center: [0.2, 0.2] };
+  var setup22 = { case: '2D-2', Re: 100, Um: 1.5, Ubar: 1.0, nu: 1e-3, D: 0.1, H: 0.41, L: 2.2, center: [0.2, 0.2] };
+  var loc = 'interval rows of Table 3 (2D-1) / Table 4 (2D-2) as transcribed identically in copy-vortexlab-dfg, copy-adelowo-dfg, copy-karman-dfg (original not read)';
+
+  // ---------------------------------------------------------------- 2D-1, Re = 20, steady
+  R({ id: 'cylinder-2d1-cd', scene: 'cylinder', quantity: 'drag coefficient cD, steady, 2D-1 (Re=20)', params: setup21, probe: 'forces.cd',
+      source: 'schafer1996', location: 'Table 3; ' + loc, kind: 'scalar',
+      value: 5.57953523384, valueSource: 'nabh1998', range: [5.57, 5.59],
+      tolerance: { metric: 'rel', value: 0.03, rationale: 'Interval half-width is 0.18%; staircase (bounce-back) cylinders at 10-20 cells/D typically miss by 1-3% because the effective diameter is ill-defined. Report in-range separately; 3% is the suggested pass band for a browser-scale grid.' } });
+  R({ id: 'cylinder-2d1-cl', scene: 'cylinder', quantity: 'lift coefficient cL, steady, 2D-1 (Re=20)', params: setup21, probe: 'forces.cl',
+      source: 'schafer1996', location: 'Table 3; ' + loc, kind: 'scalar',
+      value: 0.010618948146, valueSource: 'nabh1998 (john2001 quoted in FEATool as 0.010618937712)', range: [0.0104, 0.0110],
+      tolerance: { metric: 'max-abs', value: 0.003, rationale: 'cL is tiny (only from the 0.005 off-centre placement) and very sensitive to surface representation; an absolute band of 0.003 checks sign and magnitude only.' } });
+  R({ id: 'cylinder-2d1-dp', scene: 'cylinder', quantity: 'pressure difference p(0.15,0.2) - p(0.25,0.2), 2D-1', params: setup21, probe: 'pressure_drop',
+      source: 'schafer1996', location: 'Table 3; ' + loc, kind: 'scalar',
+      value: 0.11752016697, valueSource: 'nabh1998', range: [0.1172, 0.1176],
+      tolerance: { metric: 'rel', value: 0.03, rationale: 'Point values at the cylinder surface; on a Cartesian grid they require interpolation to the exact points, 3% band.' } });
+  R({ id: 'cylinder-2d1-la', scene: 'cylinder', quantity: 'recirculation length La (behind cylinder), 2D-1 (no standard probe)', params: setup21, probe: null,
+      source: 'schafer1996', location: 'Table 3; interval as in copy-vortexlab-dfg and copy-karman-dfg', kind: 'scalar',
+      value: null, range: [0.0842, 0.0852],
+      tolerance: { metric: 'rel', value: 0.05, rationale: 'Informational; not in the scene probe contract.' } });
+
+  // ---------------------------------------------------------------- 2D-2, Re = 100, periodic
+  R({ id: 'cylinder-2d2-cdmax', scene: 'cylinder', quantity: 'maximum drag coefficient over a shedding period, 2D-2 (Re=100)', params: setup22, probe: 'forces.cd (max over a period, after transient)',
+      source: 'schafer1996', location: 'Table 4; ' + loc, kind: 'scalar',
+      value: 3.227393, valueSource: 'featflow-dfg (level 6, dt=1/1600, extracted by copy-vortexlab-dfg; copy-adelowo-dfg gives 3.22739)', range: [3.22, 3.24],
+      tolerance: { metric: 'rel', value: 0.03, rationale: 'Coarse LBM runs (vortexlab, 20 cells/D) give 3.32 (+3%); 80 cells/D falls in range. 3% matches ~20-40 cells/D.' } });
+  R({ id: 'cylinder-2d2-clmax', scene: 'cylinder', quantity: 'maximum lift coefficient, 2D-2 (Re=100)', params: setup22, probe: 'forces.cl (max over a period)',
+      source: 'schafer1996', location: 'Table 4; ' + loc, kind: 'scalar',
+      value: 0.986571, valueSource: 'featflow-dfg (vortexlab extraction; fem-cylinder-flow 0.98658; karman-wind-tunnel 0.9859)', range: [0.99, 1.01],
+      tolerance: { metric: 'rel', value: 0.05, rationale: 'Lift amplitude is the most resolution-sensitive output; note the refined FeatFlow value (0.9866) lies BELOW the 1996 interval, so do not require in-range.' } });
+  R({ id: 'cylinder-2d2-st', scene: 'cylinder', quantity: 'Strouhal number St = D f / Ubar, 2D-2 (Re=100)', params: setup22, probe: 'forces.cl (frequency of lift oscillation)',
+      source: 'schafer1996', location: 'Table 4; ' + loc, kind: 'scalar',
+      value: 0.30184, valueSource: 'featflow-dfg (vortexlab extraction; karman-wind-tunnel quotes 0.30188)', range: [0.295, 0.305],
+      tolerance: { metric: 'rel', value: 0.03, rationale: 'Shedding frequency is robust (vortexlab 20 cells/D: 0.2988, in range). Needs >= 5 periods after the transient; frequency resolution 1/T_window must be << 0.03 f.' } });
+  R({ id: 'cylinder-2d2-dp', scene: 'cylinder', quantity: 'pressure difference at t0 + 1/(2f), t0 = time of max cL, 2D-2', params: setup22, probe: 'pressure_drop',
+      source: 'schafer1996', location: 'Table 4; ' + loc, kind: 'scalar',
+      value: 2.4848, valueSource: 'featflow-dfg (vortexlab extraction; fem-cylinder-flow extraction 2.4829 - method-dependent)', range: [2.46, 2.50],
+      tolerance: { metric: 'rel', value: 0.04, rationale: 'Depends on phase-picking within the period plus surface interpolation; copies of the refined value already differ by 0.08%.' } });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
 <script>/* references/kepler.js */
 /* References for scene `kepler` (planar two-body problem, mu = 1).
  *
@@ -1396,6 +1551,421 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
   });
 
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* references/swe-dambreak.js */
+/* References for scene `swe-dambreak` (1D shallow water, flat frictionless bed).
+ * Researcher: hyperbolic-conservation-laws researcher agent, 2026-10-13.
+ *
+ * Ritter (1892) dry-bed and Stoker (1957) wet-bed dam-break solutions in the form
+ * compiled by SWASHES (Delestre et al. 2013, arXiv:1110.0288, Sec. 4.1). The arXiv
+ * PDF was NOT reachable from the research container; the formulas were read in the
+ * open CeCILL-C package `tilupy` (analytic_sol.py, classes Ritter_dry and
+ * Stoker_SWASHES_wet, which state they implement the SWASHES equations), and
+ * cross-checked against the exact SWE Riemann solver (integral curves +
+ * Hugoniot loci) of the BSD-licensed Riemann-problems book code
+ * (clawpack/riemann_book exact_solvers/shallow_water.py), re-implemented
+ * independently in research/test-exact-solvers.js.
+ *
+ * Stoker: the middle-state celerity c_m = sqrt(g h_m) is the root in
+ * (sqrt(g h_r), sqrt(g h_l)) of
+ *    -8 g h_r c_m^2 (g h_l - c_m^2)^2 + (c_m^2 - g h_r)^2 (c_m^2 + g h_r) = 0,
+ * solved here by safeguarded Newton (Newton with bisection fallback on the bracket,
+ * where the residual changes sign: F(sqrt(g h_r)) < 0 < F(sqrt(g h_l))).
+ */
+(function (LAB) {
+  'use strict';
+
+  // Default configuration: SWASHES dam-break set-up as quoted in open search snippets
+  // (L = 10 m, x0 = 5 m, h_l = 0.005 m; Stoker h_r = 0.001 m; final time T = 6 s).
+  // h_r = 0.001 and T = 6 s were NOT confirmed by any retrieved text (recollection), see research/hyp.md.
+  var DEF = { g: 9.81, x0: 5, hl: 0.005, hr: 0.001, L: 10, tEnd: 6 };
+  // Alternative unit-domain configuration (BrowserLab choice, not from a source):
+  var UNIT = { g: 9.81, x0: 0.5, hl: 1.0, hr: 0.1, L: 1, tEnd: 0.05 };
+
+  function merge(base, over) {
+    var o = {}, k;
+    for (k in base) o[k] = base[k];
+    if (over) for (k in over) if (over[k] !== undefined && over[k] !== null) o[k] = over[k];
+    return o;
+  }
+
+  function stokerResidual(cm, g, hl, hr) {
+    var c2 = cm * cm, a = g * hl - c2, b = c2 - g * hr;
+    return -8 * g * hr * c2 * a * a + b * b * (c2 + g * hr);
+  }
+  function stokerResidualDeriv(cm, g, hl, hr) {
+    var c2 = cm * cm, a = g * hl - c2, b = c2 - g * hr;
+    // d/dcm of the residual
+    var d1 = -8 * g * hr * (2 * cm * a * a + c2 * 2 * a * (-2 * cm));
+    var d2 = 2 * b * (2 * cm) * (c2 + g * hr) + b * b * (2 * cm);
+    return d1 + d2;
+  }
+
+  /* c_m for Stoker's wet-bed dam break (requires 0 < hr < hl). */
+  function stokerCm(g, hl, hr) {
+    if (!(hr > 0 && hl > hr)) throw new Error('stokerCm: need 0 < hr < hl');
+    var lo = Math.sqrt(g * hr), hi = Math.sqrt(g * hl);
+    var flo = stokerResidual(lo, g, hl, hr);
+    var cm = 0.5 * (lo + hi), it = 0;
+    for (; it < 200; it++) {
+      var f = stokerResidual(cm, g, hl, hr);
+      if (f === 0) break;
+      if ((f < 0) === (flo < 0)) lo = cm; else hi = cm;      // keep bracket
+      var d = stokerResidualDeriv(cm, g, hl, hr);
+      var cn = cm - f / d;
+      if (!(cn > lo && cn < hi) || !isFinite(cn)) cn = 0.5 * (lo + hi);  // bisection fallback
+      if (Math.abs(cn - cm) <= 1e-15 * Math.max(1, cm)) { cm = cn; break; }
+      cm = cn;
+    }
+    stokerCm.lastIterations = it;
+    return cm;
+  }
+
+  function stokerState(P) {
+    var cm = stokerCm(P.g, P.hl, P.hr), sl = Math.sqrt(P.g * P.hl);
+    return {
+      cm: cm, hm: cm * cm / P.g, um: 2 * (sl - cm),
+      speedA: -sl,                                        // rarefaction head
+      speedB: 2 * sl - 3 * cm,                            // rarefaction tail
+      speedC: 2 * cm * cm * (sl - cm) / (cm * cm - P.g * P.hr) // shock
+    };
+  }
+
+  /* Ritter dry-bed solution. */
+  function ritter(x, t, params) {
+    var P = merge(DEF, params); P.hr = 0;
+    var sl = Math.sqrt(P.g * P.hl);
+    if (!(t > 0)) return x <= P.x0 ? { h: P.hl, u: 0 } : { h: 0, u: 0 };
+    var xA = P.x0 - t * sl, xB = P.x0 + 2 * t * sl;
+    if (x <= xA) return { h: P.hl, u: 0 };
+    if (x <= xB) {
+      var s = sl - (x - P.x0) / (2 * t);
+      return { h: 4 / (9 * P.g) * s * s, u: 2 / 3 * ((x - P.x0) / t + sl) };
+    }
+    return { h: 0, u: 0 };
+  }
+  ritter.front = function (t, params) { var P = merge(DEF, params); return P.x0 + 2 * t * Math.sqrt(P.g * P.hl); };
+  ritter.head = function (t, params) { var P = merge(DEF, params); return P.x0 - t * Math.sqrt(P.g * P.hl); };
+
+  var cache = { key: null, st: null };
+  /* Stoker wet-bed solution (falls back to Ritter when hr <= 0). */
+  function stoker(x, t, params) {
+    var P = merge(DEF, params);
+    if (!(P.hr > 0)) return ritter(x, t, P);
+    var key = P.g + ',' + P.hl + ',' + P.hr;
+    if (cache.key !== key) { cache.st = stokerState(P); cache.key = key; }
+    var st = cache.st, sl = Math.sqrt(P.g * P.hl);
+    if (!(t > 0)) return x <= P.x0 ? { h: P.hl, u: 0 } : { h: P.hr, u: 0 };
+    var xA = P.x0 + st.speedA * t, xB = P.x0 + st.speedB * t, xC = P.x0 + st.speedC * t;
+    if (x <= xA) return { h: P.hl, u: 0 };
+    if (x <= xB) {
+      var s = sl - (x - P.x0) / (2 * t);
+      return { h: 4 / (9 * P.g) * s * s, u: 2 / 3 * ((x - P.x0) / t + sl) };
+    }
+    if (x <= xC) return { h: st.hm, u: st.um };
+    return { h: P.hr, u: 0 };
+  }
+  stoker.state = function (params) { return stokerState(merge(DEF, params)); };
+  stoker.cm = stokerCm;
+  stoker.defaults = DEF;
+  stoker.unitDefaults = UNIT;
+
+  LAB.registerReference({
+    id: 'swe-dambreak-ritter',
+    scene: 'swe-dambreak',
+    quantity: 'Ritter dry-bed dam-break {h,u}(x,t); params {g, x0, hl} (default SWASHES: g=9.81, x0=5 m, hl=0.005 m on [0,10] m)',
+    source: 'swashes2013', location: 'Sec. 4.1.2 "Dam break on a dry domain without friction (Ritter\'s solution)" (equation numbers not verified); formulas read in tilupy analytic_sol.Ritter_dry',
+    kind: 'function',
+    fn: ritter,
+    params: { t: 6, x: [0, 10], alt: UNIT },
+    tolerance: {
+      metric: 'L1-depth-relative',
+      value: { 'N=200': 0.06, 'N=400': 0.04 },
+      rationale: 'sum|h_num-h_exact|dx / sum h_exact dx at t_end. No published L1 table retrieved; band set at ~1.5x the researcher\'s scratch ' +
+        'HLL (Einfeldt speeds, first order, CFL 0.9) measurement (research/hyp.md). The wet/dry front is smeared and lags for first-order schemes; ' +
+        'front position checks should use a threshold (e.g. h > 1e-6 hl) with a band of several cells, not the exact front 2 sqrt(g hl) t.'
+    }
+  });
+
+  LAB.registerReference({
+    id: 'swe-dambreak-stoker',
+    scene: 'swe-dambreak',
+    quantity: 'Stoker wet-bed dam-break {h,u}(x,t); params {g, x0, hl, hr} (default SWASHES: g=9.81, x0=5, hl=0.005, hr=0.001)',
+    source: 'swashes2013', location: 'Sec. 4.1.1 "Dam break on a wet domain without friction (Stoker\'s solution)"; c_m equation and x_A, x_B, x_C as in tilupy analytic_sol.Stoker_SWASHES_wet',
+    kind: 'function',
+    fn: stoker,
+    params: { t: 6, x: [0, 10], alt: UNIT },
+    tolerance: {
+      metric: 'L1-depth-relative',
+      value: { 'first-order N=200': 0.03, 'first-order N=400': 0.02, 'second-order N=200': 0.015, 'second-order N=400': 0.008 },
+      rationale: 'Relative L1 depth error at t_end. No published L1 table retrieved; bands ~1.5x researcher scratch measurements (HLL first order; ' +
+        'MUSCL-Hancock+minmod+HLL second order), research/hyp.md.'
+    }
+  });
+
+  /* Scalars computed by our solver for the default configs (NOT published numbers): exposed with a tight tolerance only as
+   * exact-solver regression values; validated in research/test-exact-solvers.js by two independent formulations. */
+  var sw = stokerState(DEF), su = stokerState(UNIT);
+  LAB.registerReference({
+    id: 'swe-stoker-hm-swashes', scene: 'swe-dambreak',
+    quantity: 'Stoker middle depth h_m (hl=0.005, hr=0.001, g=9.81) — computed, not published',
+    source: 'swashes2013', location: 'computed from the c_m equation of Sec. 4.1.1 by safeguarded Newton; cross-checked vs Hugoniot/integral-curve solver',
+    kind: 'scalar', value: sw.hm, range: [sw.hm * (1 - 1e-10), sw.hm * (1 + 1e-10)],
+    tolerance: { metric: 'rel', value: 0.01, rationale: 'For numerical schemes: plateau depth at mid-plateau within 1% at N>=200.' }
+  });
+  LAB.registerReference({
+    id: 'swe-stoker-hm-unit', scene: 'swe-dambreak',
+    quantity: 'Stoker middle depth h_m (unit config hl=1, hr=0.1, g=9.81) — computed, not published',
+    source: 'swashes2013', location: 'computed as above',
+    kind: 'scalar', value: su.hm, range: [su.hm * (1 - 1e-10), su.hm * (1 + 1e-10)],
+    tolerance: { metric: 'rel', value: 0.01, rationale: 'For numerical schemes: plateau depth at mid-plateau within 1% at N>=200.' }
+  });
+
+  LAB.registerReference({
+    id: 'swe-dambreak-totals', scene: 'swe-dambreak',
+    quantity: 'Domain totals with transmissive BCs while waves are inside the domain: mass = x0*hl + (L-x0)*hr (constant); momentum(t) = g/2 (hl^2 - hr^2) t',
+    source: 'swashes2013', location: 'follows from the conservation form of the SWE (flux of hu is hu^2 + g h^2/2) and the initial data',
+    kind: 'function',
+    fn: function (x, t, params) {
+      var P = merge(DEF, params);
+      return { mass: P.x0 * P.hl + (P.L - P.x0) * P.hr, momentum: 0.5 * P.g * (P.hl * P.hl - P.hr * P.hr) * t };
+    },
+    tolerance: { metric: 'rel', value: 1e-12, rationale: 'Conservative FV schemes conserve mass to round-off (positivity fixes that clip h<0 break this; flag them).' }
+  });
+
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* references/taylor-green.js */
+/* 2-D decaying Taylor-Green vortex references (scene 'taylor-green').
+ * Periodic box [0, 2*pi/k]^2 (one full period in each direction; any integer number of periods
+ * gives the same domain means). Incompressible NS with kinematic viscosity nu, density rho:
+ *   u = -U0 cos(kx) sin(ky) F(t),  v = U0 sin(kx) cos(ky) F(t),  F(t) = exp(-2 nu k^2 t)
+ *   p = p0 - (rho U0^2 / 4) [cos(2kx) + cos(2ky)] F(t)^2
+ *   domain-mean KE = <(u^2+v^2)/2> = (U0^2 / 4) exp(-4 nu k^2 t)
+ * The solution is exact for the full nonlinear equations (u.grad u is a pure gradient,
+ * balanced by p). Verified by substitution here (research/ins.md, finite-difference NS residual ~3e-8, at round-off level for h=1e-4).
+ * Default nondimensionalisation: U0 = 1, k = 1, Re = U0/(k nu). */
+(function (LAB) {
+  'use strict';
+  var R = function (r) { LAB.registerReference(r); };
+
+  function prm(p) {
+    p = p || {};
+    var U0 = p.U0 != null ? p.U0 : 1;
+    var k = p.k != null ? p.k : 1;
+    var nu = p.nu != null ? p.nu : (p.Re != null ? U0 / (k * p.Re) : 0.01);
+    return { U0: U0, k: k, nu: nu, rho: p.rho != null ? p.rho : 1 };
+  }
+
+  R({
+    id: 'tgv-velocity', scene: 'taylor-green',
+    quantity: 'analytic velocity field (u, v) at point x=[x,y], time t',
+    source: 'taylor1937', location: '2-D decaying form as quoted in lehmann2022 (arXiv:2112.08926, TGV benchmark section; equation number unverified); verified by direct substitution',
+    kind: 'function',
+    args: 'fn([x, y], t, {U0=1, k=1, nu | Re}) -> [u, v]',
+    fn: function (x, t, params) {
+      var q = prm(params);
+      var F = Math.exp(-2 * q.nu * q.k * q.k * t);
+      var kx = q.k * x[0], ky = q.k * x[1];
+      return [-q.U0 * Math.cos(kx) * Math.sin(ky) * F, q.U0 * Math.sin(kx) * Math.cos(ky) * F];
+    },
+    tolerance: { metric: 'rel-l2', value: 0.02, rationale: 'Probe l2_error is the relative L2 velocity error; 2% is comfortably met by 2nd-order schemes at 64^2 for Re<=100 over one decay time 1/(2 nu k^2). Semi-Lagrangian (stable-fluids) adds O(dt) numerical diffusion and may need a smaller dt to pass.' }
+  });
+
+  R({
+    id: 'tgv-pressure', scene: 'taylor-green',
+    quantity: 'analytic pressure (minus its mean) at point x=[x,y], time t',
+    source: 'taylor1937', location: 'derived by substitution (u.grad u = -grad p / rho); standard form, not checked against an original equation number',
+    kind: 'function',
+    args: 'fn([x, y], t, {U0, k, nu | Re, rho=1}) -> p',
+    fn: function (x, t, params) {
+      var q = prm(params);
+      var F2 = Math.exp(-4 * q.nu * q.k * q.k * t);
+      return -0.25 * q.rho * q.U0 * q.U0 * (Math.cos(2 * q.k * x[0]) + Math.cos(2 * q.k * x[1])) * F2;
+    },
+    tolerance: { metric: 'rel-l2', value: 0.05, rationale: 'Pressure is a derived (projection) quantity; looser than velocity. Compare after removing the mean.' }
+  });
+
+  R({
+    id: 'tgv-kinetic-energy', scene: 'taylor-green',
+    quantity: 'domain-mean kinetic energy <(u^2+v^2)/2> vs time', probe: 'kinetic_energy',
+    source: 'taylor1937', location: 'follows from the velocity field: E(t) = (U0^2/4) exp(-4 nu k^2 t)',
+    kind: 'function',
+    args: 'fn(null, t, {U0, k, nu | Re}) -> E',
+    fn: function (x, t, params) {
+      var q = prm(params);
+      return 0.25 * q.U0 * q.U0 * Math.exp(-4 * q.nu * q.k * q.k * t);
+    },
+    tolerance: { metric: 'rel', value: 0.01, rationale: 'Checked at t = 1/(2 nu k^2) (velocity e-folding time). Energy is an integral quantity and converges faster than pointwise fields; 1% catches spurious numerical viscosity (e.g. an LBM viscosity off by the 1/2 in nu = c_s^2 (tau - 1/2) dt gives a large miss).' }
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* methods/stormer-verlet.js */
+/* Störmer–Verlet (velocity Verlet / leapfrog) integrator for the Kepler scene.
+ * Metadata from research/ode.json (method id 'stormer-verlet'). See docs/CONTRACTS.md §4. */
+(function (LAB) {
+  'use strict';
+
+  var TRAIL_CAP = 20000;
+
+  LAB.registerMethod({
+    id: 'stormer-verlet',
+    name: 'Störmer–Verlet (velocity Verlet / leapfrog)',
+    family: 'integrator',
+    summary: 'A half kick of the momentum with the force at the old position, a full drift of the ' +
+      'position with that half-step momentum, then a second half kick with the force at the new ' +
+      'position. It is explicit, second order, symplectic and time-reversible, and it costs one force ' +
+      'evaluation per step. It is the composition of the two symplectic Euler variants with step h/2. ' +
+      'Energy is not conserved exactly: the error stays O(h²) and does not drift over very long times. ' +
+      'Angular momentum is conserved up to round-off, and the global error grows linearly in time.',
+    sources: ['hlw2003', 'hairer2010week2', 'hlw2006'],
+    equations: [
+      { label: 'Kepler Hamiltonian',
+        tex: 'H(p,q)=\\tfrac12|p|^2-\\frac{1}{|q|},\\quad \\dot q = p,\\ \\dot p = -\\frac{q}{|q|^3}',
+        source: 'hlw2006', location: 'Sec. I.2.3 (secondary copy)' },
+      { label: 'velocity Verlet (one-step form)',
+        tex: 'p_{n+1/2}=p_n-\\tfrac h2\\nabla U(q_n),\\ q_{n+1}=q_n+h\\,p_{n+1/2},\\ p_{n+1}=p_{n+1/2}-\\tfrac h2\\nabla U(q_{n+1})',
+        source: 'hlw2003', location: 'Sec. 1 (Newton–Störmer–Verlet–leapfrog method, p.400); exact equation number not verified' },
+      { label: 'two-step (Störmer) form',
+        tex: 'q_{n+1}-2q_n+q_{n-1}=-h^2\\nabla U(q_n)',
+        source: 'hlw2003', location: 'Sec. 1 (Newton–Störmer–Verlet–leapfrog method, p.400); exact equation number not verified' },
+      { label: 'composition',
+        tex: '\\Phi^{SV}_h=\\Phi^{SE*}_{h/2}\\circ\\Phi^{SE}_{h/2}',
+        source: 'hairer2010week2', location: 'Lecture 2 (snippet: composition of the two symplectic Euler methods with step h/2)' }
+    ],
+    assumptions: [
+      'constant step size h (the long-time energy behaviour is lost if h changes during a run)',
+      'separable H = T(p) + U(q), mu = 1, U(q) = -1/|q|'
+    ],
+    stability: 'Energy error O(h^2) bounded over exponentially long times (hlw2003 Sec. 4-5, snippet); ' +
+      'linear global error growth (hlw2003 abstract). For Kepler h must resolve pericentre passage; ' +
+      'the researcher pilot shows clean asymptotics at h=1e-2, e=0.6.',
+    scenes: {
+      kepler: {
+        params: [
+          { key: 'e', label: 'Eccentricity e', min: 0, max: 0.95, step: 0.05, value: 0.6, live: false },
+          { key: 'h', label: 'Step size h', min: 0.0001, max: 0.2, step: 0.0001, value: 0.01, live: true },
+          { key: 'trail', label: 'Trail length (points)', min: 100, max: TRAIL_CAP, step: 100, value: 4000, live: true }
+        ],
+        notes: 'q0 = (1-e, 0), p0 = (0, sqrt((1+e)/(1-e))), from hlw2006 Sec. I.2.3. Changing h while the ' +
+          'run is going is allowed. Each step is still a symplectic Verlet step, but the run is then a ' +
+          'variable-step method and loses the bounded-energy guarantee. Restart to compare at fixed h.'
+      }
+    },
+
+    create: function (sceneId, params) {
+      if (sceneId !== 'kepler') throw new Error('stormer-verlet supports only kepler');
+      var e = +params.e, h = +params.h;
+      var trail = Math.max(2, Math.min(TRAIL_CAP, Math.round(+params.trail || 4000)));
+
+      // state s = [qx, qy, px, py]; f = cached force at current q
+      var s = new Float64Array(4), f = new Float64Array(2);
+      s[0] = 1 - e; s[1] = 0; s[2] = 0; s[3] = Math.sqrt((1 + e) / (1 - e));
+
+      function force() {
+        var x = s[0], y = s[1], r2 = x * x + y * y, inv3 = 1 / (r2 * Math.sqrt(r2));
+        f[0] = -x * inv3; f[1] = -y * inv3;
+      }
+      force();
+
+      function energy() {
+        return 0.5 * (s[2] * s[2] + s[3] * s[3]) - 1 / Math.sqrt(s[0] * s[0] + s[1] * s[1]);
+      }
+      function angmom() { return s[0] * s[3] - s[1] * s[2]; }
+      var H0 = energy(), L0 = angmom();
+
+      // display ring buffer of positions
+      var tx = new Float64Array(TRAIL_CAP), ty = new Float64Array(TRAIL_CAP);
+      var head = 0, count = 0;
+      function record() {
+        tx[head] = s[0]; ty[head] = s[1];
+        head = (head + 1) % TRAIL_CAP;
+        if (count < TRAIL_CAP) count++;
+      }
+      record();
+
+      var ext = 1 + e + 0.15;
+      // t = tBase + (steps - nBase) * h, so t_N = N h exactly at constant h
+      var tBase = 0, nBase = 0;
+
+      var sim = {
+        t: 0, steps: 0, dt: h,
+        fields: ['orbit'],
+        step: function () {
+          var hh = 0.5 * h;
+          s[2] += hh * f[0]; s[3] += hh * f[1];   // half kick
+          s[0] += h * s[2];  s[1] += h * s[3];    // drift
+          force();
+          s[2] += hh * f[0]; s[3] += hh * f[1];   // half kick
+          sim.steps++;
+          sim.t = tBase + (sim.steps - nBase) * h;
+          record();
+        },
+        setParam: function (key, value) {
+          if (key === 'h') { tBase = sim.t; nBase = sim.steps; h = +value; sim.dt = h; }
+          else if (key === 'trail') trail = Math.max(2, Math.min(TRAIL_CAP, Math.round(+value)));
+        },
+        view: function () {
+          var n = Math.min(trail, count), xs = new Array(n), ys = new Array(n);
+          var start = (head - n + TRAIL_CAP) % TRAIL_CAP;
+          for (var i = 0; i < n; i++) {
+            var k = (start + i) % TRAIL_CAP;
+            xs[i] = tx[k]; ys[i] = ty[k];
+          }
+          return {
+            kind: 'orbit',
+            // orbit spans x in [-(1+e), 1-e], |y| <= sqrt(1-e^2); square box around the focus
+            extent: [-ext, -ext, ext, ext],
+            series: [{ label: 'Störmer–Verlet', x: xs, y: ys, role: 'sim' }],
+            points: [{ x: 0, y: 0, label: 'focus' }, { x: s[0], y: s[1], label: 'q' }]
+          };
+        },
+        metrics: function () {
+          var H = energy(), L = angmom();
+          return [
+            { key: 't', label: 'time t', value: sim.t, unit: '', fmt: 'g' },
+            { key: 'steps', label: 'steps', value: sim.steps, unit: '', fmt: 'i' },
+            { key: 'periods', label: 'periods t/2π', value: sim.t / (2 * Math.PI), unit: '', fmt: 'g' },
+            { key: 'H', label: 'energy H', value: H, unit: '', fmt: 'e' },
+            { key: 'dH', label: '|H − H0|/|H0|', value: Math.abs(H - H0) / Math.abs(H0), unit: '', fmt: 'e' },
+            { key: 'L', label: 'angular momentum L', value: L, unit: '', fmt: 'e' },
+            { key: 'dL', label: '|L − L0|/|L0|', value: L0 !== 0 ? Math.abs(L - L0) / Math.abs(L0) : Math.abs(L - L0), unit: '', fmt: 'e' }
+          ];
+        },
+        probe: function (name) {
+          if (name === 'state') return { q: [s[0], s[1]], p: [s[2], s[3]] };
+          if (name === 'invariants') return { H: energy(), L: angmom() };
+          return null;
+        },
+        diverged: function () {
+          if (!LAB.util.finiteAll(s)) return true;
+          return Math.sqrt(s[0] * s[0] + s[1] * s[1]) < 1e-8;
+        }
+      };
+      return sim;
+    }
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* js/graph-data.js */
+/* generated by tools/build.js from orchestration/graph.json */
+(function (LAB) { LAB.graph = {
+  "summary": "Agent dependency graph as executed. Research → Build → independent Review → (Refine → fresh Review)* → Interface. Each review node is a different agent from the builder of that method.",
+  "waves": [
+    {"name": "Wave 0 · Research (4 agents, parallel)", "detail": "ins (cavity, Taylor–Green, cylinder), hyp (Sod, SWE dam break), ptc (2D dam break, particle methods), ode (Kepler)."}
+  ],
+  "nodes": [
+    {"id": "R-ins", "type": "research", "label": "research: incompressible", "status": "done"},
+    {"id": "R-hyp", "type": "research", "label": "research: hyperbolic", "status": "done"},
+    {"id": "R-ptc", "type": "research", "label": "research: particles", "status": "done"},
+    {"id": "R-ode", "type": "research", "label": "research: integrators", "status": "done"}
+  ],
+  "edges": []
+}; })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
 <script>/* js/ui.js */

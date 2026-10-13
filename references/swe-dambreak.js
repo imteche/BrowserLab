@@ -13,7 +13,15 @@
  *
  * Stoker: the middle-state celerity c_m = sqrt(g h_m) is the root in
  * (sqrt(g h_r), sqrt(g h_l)) of
- *    -8 g h_r c_m^2 (g h_l - c_m^2)^2 + (c_m^2 - g h_r)^2 (c_m^2 + g h_r) = 0,
+ *    -8 g h_r c_m^2 (sqrt(g h_l) - c_m)^2 + (c_m^2 - g h_r)^2 (c_m^2 + g h_r) = 0.
+ * DISCREPANCY: tilupy 2.1.1 (Stoker_SWASHES_wet.equation_cm) writes the first factor as
+ * (g h_l - c_m^2)^2, which is dimensionally inconsistent (c^8 vs c^6) and gives a
+ * middle state that violates the Rankine-Hugoniot conditions (e.g. h_m = 0.752 instead of
+ * 0.3962 for h_l=1, h_r=0.1). The form used here follows from equating the 1-rarefaction
+ * Riemann invariant u_m = 2(sqrt(g h_l) - c_m) with the 2-shock Hugoniot locus
+ * u_m = (h_m - h_r) sqrt(g (h_m + h_r) / (2 h_m h_r)) (riemann_book shallow_water.py), and is
+ * verified against an independent bisection solver and RH/momentum checks in
+ * research/test-exact-solvers.js. Which form the SWASHES PDF prints could not be checked.
  * solved here by safeguarded Newton (Newton with bisection fallback on the bracket,
  * where the residual changes sign: F(sqrt(g h_r)) < 0 < F(sqrt(g h_l))).
  */
@@ -35,13 +43,13 @@
   }
 
   function stokerResidual(cm, g, hl, hr) {
-    var c2 = cm * cm, a = g * hl - c2, b = c2 - g * hr;
+    var c2 = cm * cm, a = Math.sqrt(g * hl) - cm, b = c2 - g * hr;
     return -8 * g * hr * c2 * a * a + b * b * (c2 + g * hr);
   }
   function stokerResidualDeriv(cm, g, hl, hr) {
-    var c2 = cm * cm, a = g * hl - c2, b = c2 - g * hr;
+    var c2 = cm * cm, a = Math.sqrt(g * hl) - cm, b = c2 - g * hr;
     // d/dcm of the residual
-    var d1 = -8 * g * hr * (2 * cm * a * a + c2 * 2 * a * (-2 * cm));
+    var d1 = -8 * g * hr * (2 * cm * a * a - 2 * c2 * a);
     var d2 = 2 * b * (2 * cm) * (c2 + g * hr) + b * b * (2 * cm);
     return d1 + d2;
   }
@@ -136,7 +144,7 @@
     id: 'swe-dambreak-stoker',
     scene: 'swe-dambreak',
     quantity: 'Stoker wet-bed dam-break {h,u}(x,t); params {g, x0, hl, hr} (default SWASHES: g=9.81, x0=5, hl=0.005, hr=0.001)',
-    source: 'swashes2013', location: 'Sec. 4.1.1 "Dam break on a wet domain without friction (Stoker\'s solution)"; c_m equation and x_A, x_B, x_C as in tilupy analytic_sol.Stoker_SWASHES_wet',
+    source: 'swashes2013', location: 'Sec. 4.1.1 "Dam break on a wet domain without friction (Stoker\'s solution)"; x_A, x_B, x_C, h, u as in tilupy analytic_sol.Stoker_SWASHES_wet; c_m equation CORRECTED (see header) and checked vs riemannbook2020 Hugoniot locus',
     kind: 'function',
     fn: stoker,
     params: { t: 6, x: [0, 10], alt: UNIT },

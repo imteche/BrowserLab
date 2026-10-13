@@ -365,7 +365,7 @@
     var e = '<p class="small" style="margin-top:0">' + esc(m.summary || '') + '</p>';
     (m.equations || []).forEach(function (q) {
       var html; try { html = window.katex ? katex.renderToString(q.tex, { displayMode: true, throwOnError: false }) : null; } catch (er) { html = null; }
-      e += '<div class="eq"><div class="lab"><span>' + esc(q.label) + '</span><span>' + srcLink(q.source, q.location) + '</span></div><div class="tex' + (html ? '' : ' raw') + '">' + (html || esc(q.tex)) + '</div></div>';
+      e += '<div class="eq"><div class="eq-h"><span>' + esc(q.label) + '</span><span>' + srcLink(q.source, q.location) + '</span></div><div class="tex' + (html ? '' : ' raw') + '">' + (html || esc(q.tex)) + '</div></div>';
     });
     $('r-eq').innerHTML = e;
     var sc = m.scenes[S.scene] || {};
