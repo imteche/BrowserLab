@@ -1,20 +1,94 @@
 {
-  "research": [
-    {"id": "ins", "label": "research: incompressible", "methods": ["lbm-d2q9", "psi-omega-fd", "stable-fluids"]},
-    {"id": "hyp", "label": "research: hyperbolic", "methods": ["lax-friedrichs", "hllc-godunov", "muscl-hancock", "hll-swe"]},
-    {"id": "ptc", "label": "research: particles", "methods": ["wcsph", "pbf", "mls-mpm"]},
-    {"id": "ode", "label": "research: integrators", "methods": ["stormer-verlet", "explicit-euler", "symplectic-euler", "rk4"]}
-  ],
-  "refinements": [
-    {"method": "wcsph", "round": 1, "changed": false, "trigger": ["dam-front"], "detail": "No implementation defect; only remedy was raising the sound-speed factor (tuning) — flag stands."},
-    {"method": "lbm-d2q9", "round": 1, "changed": true, "trigger": ["tg-re100", "cyl-2d1", "cyl-2d2"], "detail": "Fixed Taylor–Green non-equilibrium initialisation factor and pressure-outlet instability."}
-  ],
-  "waves": [
-    {"name": "Wave 0 · Research", "detail": "4 researcher agents in parallel; 72 open sources; exact solvers validated (Sod vs sodshock 1e-16; Kepler invariants 2e-14)."},
-    {"name": "Pilot", "detail": "stormer-verlet@kepler-e06 built, independently reviewed (matched) and re-run by the orchestrator before scaling."},
-    {"name": "Wave 1 · Integrators + incompressible", "detail": "explicit/symplectic Euler, RK4, LBM, ψ–ω FD, Stable Fluids: 6 builders, 13 reviews, 1 refinement with code change → fresh re-review of all LBM experiments."},
-    {"name": "Wave 2 · Particle methods", "detail": "WCSPH, PBF, MLS-MPM: 3 builders, 4 reviews, 1 refinement (declined: no defect)."},
-    {"name": "Wave 3 · Hyperbolic", "detail": "Lax–Friedrichs, HLLC-Godunov, MUSCL–Hancock, HLL-SWE: 4 builders, 5 reviews. Two reviewers independently caught a factor-2 error in the Sod energy reference."},
-    {"name": "Interface refresh", "detail": "Lab republished after each wave; Live wall runs every scene concurrently."}
-  ]
+ "research": [
+  {
+   "id": "ins",
+   "label": "research: incompressible",
+   "methods": [
+    "lbm-d2q9",
+    "psi-omega-fd",
+    "stable-fluids"
+   ]
+  },
+  {
+   "id": "hyp",
+   "label": "research: hyperbolic",
+   "methods": [
+    "lax-friedrichs",
+    "hllc-godunov",
+    "muscl-hancock",
+    "hll-swe"
+   ]
+  },
+  {
+   "id": "ptc",
+   "label": "research: particles",
+   "methods": [
+    "wcsph",
+    "pbf",
+    "mls-mpm"
+   ]
+  },
+  {
+   "id": "ode",
+   "label": "research: integrators",
+   "methods": [
+    "stormer-verlet",
+    "explicit-euler",
+    "symplectic-euler",
+    "rk4"
+   ]
+  }
+ ],
+ "refinements": [
+  {
+   "method": "wcsph",
+   "round": 1,
+   "changed": false,
+   "trigger": [
+    "dam-front"
+   ],
+   "detail": "No implementation defect; only remedy was raising the sound-speed factor (tuning) \u2014 flag stands."
+  },
+  {
+   "method": "lbm-d2q9",
+   "round": 1,
+   "changed": true,
+   "trigger": [
+    "tg-re100",
+    "cyl-2d1",
+    "cyl-2d2"
+   ],
+   "detail": "Fixed Taylor\u2013Green non-equilibrium initialisation factor and pressure-outlet instability."
+  }
+ ],
+ "waves": [
+  {
+   "name": "Wave 0 \u00b7 Research",
+   "detail": "4 researcher agents in parallel; 72 open sources; exact solvers validated (Sod vs sodshock 1e-16; Kepler invariants 2e-14)."
+  },
+  {
+   "name": "Pilot",
+   "detail": "stormer-verlet@kepler-e06 built, independently reviewed (matched) and re-run by the orchestrator before scaling."
+  },
+  {
+   "name": "Wave 1 \u00b7 Integrators + incompressible",
+   "detail": "explicit/symplectic Euler, RK4, LBM, \u03c8\u2013\u03c9 FD, Stable Fluids: 6 builders, 13 reviews, 1 refinement with code change \u2192 fresh re-review of all LBM experiments."
+  },
+  {
+   "name": "Wave 1b \u00b7 LBM re-verification",
+   "detail": "Code changed by refinement \u2192 5 fresh reviewers re-ran every LBM experiment. TG and cylinder 2D-1 moved flagged \u2192 matched; cylinder 2D-2 remains flagged (staircase default; interpolated bounce-back option passes). No further defect found, loop closed."
+  },
+  {
+   "name": "Wave 2 \u00b7 Particle methods",
+   "detail": "WCSPH, PBF, MLS-MPM: 3 builders, 4 reviews, 1 refinement (declined: no defect)."
+  },
+  {
+   "name": "Wave 3 \u00b7 Hyperbolic",
+   "detail": "Lax\u2013Friedrichs, HLLC-Godunov, MUSCL\u2013Hancock, HLL-SWE: 4 builders, 5 reviews. Two reviewers independently caught a factor-2 error in the Sod energy reference."
+  },
+  {
+   "name": "Interface refresh",
+   "detail": "Lab republished after each wave; Live wall runs every scene concurrently."
+  }
+ ]
 }

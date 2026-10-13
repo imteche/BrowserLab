@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Reviewer check: lbm-d2q9 @ cavity-re1000 (lid-driven cavity, Re = 1000, steady state).
- * Reviewer: reviewer-lbm-d2q9-cavity-re1000-r1, round 1, 2026-10-13. Does not modify the method.
+ * Reviewer: reviewer-lbm-d2q9-cavity-re1000-r1, round 1, 2026-10-13. Re-read and re-run unchanged by
+ * reviewer-lbm-d2q9-cavity-re1000-r2 (round 2, 2026-10-13) after the refinement round. Does not modify the method.
  * Usage: node "verification/checks/lbm-d2q9@cavity-re1000.check.js"
  * Prints a JSON summary on stdout. Runtime about 9.5 min wall: two worker threads in parallel. Measured on this
  * container: ~12 MLUPS per worker with 1-2 workers, but only ~7 MLUPS each with 3 workers (about 2 cores of

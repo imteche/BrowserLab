@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Reviewer check: lbm-d2q9 @ tg-re100 (2-D decaying Taylor-Green vortex, Re = 100, t in [0, 5]).
- * Reviewer: reviewer-lbm-d2q9-tg-re100-r1, round 1, 2026-10-13. Does not modify the method.
+ * Reviewer: reviewer-lbm-d2q9-tg-re100-r1, round 1; re-used and revised by reviewer-lbm-d2q9-tg-re100-r2, round 2, 2026-10-13.
+ * Does not modify the method.
  * Usage: node "verification/checks/lbm-d2q9@tg-re100.check.js"
  * Prints a JSON summary on stdout.
  *
@@ -135,23 +136,21 @@ const long256 = run(256, 0.05, 50, 5);
 const all = [primary, ac64, ac256, df64, df256, long, long256];
 
 /* ---- diagnostic (reviewer-side, in memory only; methods/lbm-d2q9.js is NOT modified):
- * createTG stores feq - tau*w*rho*3*Q(grad u) into L.fo, which the step() loop treats as POST-collision
- * populations (it streams fo, then collides). The Chapman-Enskog non-equilibrium part of the PRE-collision
- * populations is -tau*w*rho*3*Q; after BGK collision it becomes (1 - 1/tau) times that = -(tau - 1)*w*rho*3*Q.
- * Re-run with the method source patched in memory to (a) -(tau-1) (post-collision consistent) and (b) no
- * non-equilibrium part, and compare the start-up transient, KE monotonicity and the t = 5 gaps. */
+ * Round 2: the method now stores the post-collision-consistent non-equilibrium part -(tau-1) w rho 3 Q in L.fo
+ * (step() streams fo first, then collides). For comparison the method source is patched in memory back to
+ * (a) the round-1 pre-collision factor -tau ('pre') and (b) no non-equilibrium part ('none'). */
 function patchedMethod(variant) {
   const fs = require('fs'), vm = require('vm'), path = require('path');
   let src = fs.readFileSync(path.join(H.ROOT, 'methods/lbm-d2q9.js'), 'utf8');
-  const target = 'feq -= tau * W[i] * rho * 3 * Q;';
+  const target = 'feq -= (tau - 1) * W[i] * rho * 3 * Q;';
   if (src.indexOf(target) < 0) return null;
-  src = src.replace(target, variant === 'post' ? 'feq -= (tau - 1) * W[i] * rho * 3 * Q;' : '');
+  src = src.replace(target, variant === 'pre' ? 'feq -= tau * W[i] * rho * 3 * Q;' : '');
   const L2 = H.load({ methods: [], verification: false });
   vm.runInThisContext(src, { filename: 'lbm-d2q9.patched-' + variant + '.js' });
   return L2.methods['lbm-d2q9'];
 }
 const initDiag = {};
-for (const v of ['post', 'none']) {
+for (const v of ['pre', 'none']) {
   const Mp = patchedMethod(v);
   if (!Mp) { initDiag[v] = 'target line not found'; continue; }
   initDiag[v] = [64, 128].map(N => {
@@ -160,7 +159,7 @@ for (const v of ['post', 'none']) {
       keGap_everystep_max_t: r.keGap_everystep_max_t, ke_increase_steps: r.ke_increase_steps, ke_max_step_increase_rel: r.ke_max_step_increase_rel };
   });
 }
-initDiag.as_published = [ac64, primary].map(r => ({ N: r.N, Ulat: r.Ulat, keGap_t5: r.keGap_end, l2_t5: r.l2_end,
+initDiag.as_published_r2 = [ac64, primary].map(r => ({ N: r.N, Ulat: r.Ulat, keGap_t5: r.keGap_end, l2_t5: r.l2_end,
   keGap_everystep_max: r.keGap_everystep_max, keGap_everystep_max_t: r.keGap_everystep_max_t,
   ke_increase_steps: r.ke_increase_steps, ke_last_increase_step: r.ke_last_increase_step, ke_max_step_increase_rel: r.ke_max_step_increase_rel }));
 const conservation = {
@@ -171,7 +170,7 @@ const conservation = {
   ke_max_step_increase_rel: Math.max(...all.map(r => r.ke_max_step_increase_rel))
 };
 // Energy: no invariant (viscous decay). For the incompressible TG flow dKE/dt = -nu <|omega|^2> < 0; with a
-// consistent initial state the weakly compressible LBM also decays KE monotonically (see initDiag 'post').
+// consistent initial state the weakly compressible LBM also decays KE monotonically (compare initDiag 'pre').
 conservation.energy_pass = conservation.ke_monotone_all;
 conservation.mass_pass = all.every(r => r.maxDmass < 10 * EPS * r.steps);
 conservation.momentum_pass = conservation.momentum_max_normalised < 1e-10;

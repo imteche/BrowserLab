@@ -14,7 +14,7 @@ open the single-file bundle `dist/browserlab.html`.
 | | |
 |---|---|
 | Methods | 14 (`methods/`) |
-| Reference scenes | 7, with 11 experiments (`js/scenes.js`) |
+| Reference scenes | 7, with 10 experiments (`js/scenes.js`) |
 | Sources | 72 open sources (`SOURCES.md`) |
 | Verification records | see `VERIFICATION.md` (generated) |
 

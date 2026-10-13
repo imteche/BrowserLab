@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Reviewer check: lbm-d2q9 @ cyl-2d2 (DFG / Schafer-Turek benchmark 2D-2, Re = 100, periodic shedding).
- * Reviewer: reviewer-lbm-d2q9-cyl-2d2-r1, round 1, 2026-10-13. Does not modify the method.
+ * Reviewer: reviewer-lbm-d2q9-cyl-2d2-r1, round 1; re-read and re-run by reviewer-lbm-d2q9-cyl-2d2-r2, round 2, 2026-10-13
+ * (after refinement round 1: Zou-He outlet corner-node fix). Does not modify the method.
  * Usage: node verification/checks/lbm-d2q9@cyl-2d2.check.js        (all runs in parallel, ~5-6 min on 4 cores)
  *        node verification/checks/lbm-d2q9@cyl-2d2.check.js --quick (res 20 only, T = 6 s; smoke test)
  * Prints a JSON summary on stdout.

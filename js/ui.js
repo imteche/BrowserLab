@@ -577,7 +577,8 @@
     T.hist = (TILE[T.scene] ? TILE[T.scene].m : []).map(function () { return []; });
     var rec = exp && LAB.verification[T.method + '@' + exp.id];
     T.el.querySelector('.t-chip').innerHTML = chip(rec ? rec.status : null);
-    T.el.querySelector('.t-gap').textContent = rec && rec.gaps && rec.gaps[0] ? rec.gaps[0].quantity + ': ' + fmt(rec.gaps[0].value) + (rec.gaps[0].tolerance != null ? ' (tol ' + fmt(rec.gaps[0].tolerance) + ')' : '') : (rec ? '' : 'awaiting independent review');
+    var gp = rec && rec.gaps && rec.gaps.length ? (rec.gaps.filter(function (x) { return !x.pass; })[0] || rec.gaps[0]) : null;
+    T.el.querySelector('.t-gap').innerHTML = gp ? '<span class="' + (gp.pass ? 'pass' : 'fail') + '">' + (gp.pass ? 'within tol' : 'exceeds tol') + '</span> · ' + esc(gp.quantity) + ': ' + fmt(gp.value) + (gp.tolerance != null ? ' (tol ' + fmt(gp.tolerance) + ')' : '') : (rec ? '' : 'awaiting independent review');
   }
   function buildWall() {
     var host = $('wall'), scenes = Object.keys(LAB.scenes).filter(function (k) { return methodsFor(k).length; });
@@ -668,7 +669,8 @@
       h += '<tr><th>' + esc(LAB.methods[mid].name) + '</th>' + exps.map(function (x) {
         if (!LAB.methods[mid].scenes[x.scene]) return '<td class="unsup"></td>';
         var r = LAB.verification[mid + '@' + x.exp.id];
-        return '<td class="cell" data-go="' + x.scene + '/' + x.exp.id + '/' + mid + '">' + chip(r ? r.status : null) + (r && r.gaps && r.gaps[0] ? '<div class="small dim" style="margin-top:3px">' + esc(r.gaps[0].quantity).slice(0, 38) + ': ' + fmt(r.gaps[0].value) + '</div>' : '') + '</td>';
+        var g0 = r && r.gaps && r.gaps.length ? (r.gaps.filter(function (x) { return !x.pass; })[0] || r.gaps[0]) : null;
+        return '<td class="cell" data-go="' + x.scene + '/' + x.exp.id + '/' + mid + '">' + chip(r ? r.status : null) + (g0 ? '<div class="small dim" style="margin-top:3px" title="' + esc(g0.quantity) + '">' + esc(g0.quantity.slice(0, 38)) + ': ' + fmt(g0.value) + '</div>' : '') + '</td>';
       }).join('') + '</tr>';
     });
     h += '</table></div>';

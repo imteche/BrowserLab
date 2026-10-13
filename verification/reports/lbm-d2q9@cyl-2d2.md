@@ -1,78 +1,91 @@
-# lbm-d2q9 @ cyl-2d2 — review round 1
+# lbm-d2q9 @ cyl-2d2: review round 2
 
-Reviewer: reviewer-lbm-d2q9-cyl-2d2-r1 (not the builder) · 2026-10-13 · **Status: flagged**
+Reviewer: reviewer-lbm-d2q9-cyl-2d2-r2 (not the builder) · 2026-10-13 · **Status: flagged** (not fixable as an implementation defect)
 
-Check script: `verification/checks/lbm-d2q9@cyl-2d2.check.js` (five runs as parallel child processes, 480 s wall on a shared 4-core machine; prints JSON).
+Check script: `verification/checks/lbm-d2q9@cyl-2d2.check.js`. I re-read the round-1 script and reused it unchanged apart from the header. It runs five configurations as parallel child processes, which took 7.0 min wall on 4 cores, and prints JSON.
 Record: `verification/results/lbm-d2q9@cyl-2d2.js`.
 
-## Protocol
+## What changed since round 1
 
-- Scene `cylinder`, DFG 2D-2: Re = 100, Um = 1.5 m/s, Ubar = 1 m/s, nu = 1e-3, D = 0.1, channel 2.2 x 0.41, cylinder at (0.2, 0.2).
-- Method: D2Q9 BGK, halfway bounce-back walls, moving-wall bounce-back parabolic inlet, Zou-He rho = 1 outlet (replaces the benchmark's do-nothing outflow), momentum-exchange forces. Start from the inflow profile everywhere (method default).
-- Integrate to T_end = 10 s. Analysis window = last 4 s (t in [6, 10], about 12 shedding periods; frequency resolution ~1/(12 P) is far below 3 % of f).
-- St = D f / Ubar from upward zero crossings of C_L - mean(C_L), linear interpolation between steps. Raw C_L zero crossings also reported.
-- max C_D, max C_L: raw per-step maxima over the window (the reference definition). Per-period maxima for periodicity; a moving average over P/100 to measure acoustic noise.
-- dp (information only): pressure_drop probe half a period after a C_L maximum.
-- Tolerances from the references, unchanged: St rel 3 %, max C_D rel 3 %, max C_L rel 5 %, dp rel 4 %. Gaps are taken against the refined FeatFlow values (`value`). In-range against the 1996 intervals is reported as information.
-- Conservation (open domain, so total mass is not an invariant). Reviewer bounds: (i) mass stationarity, |mean M over the last 2 periods - over the first 2 periods| / M0 < 1e-4; (ii) period-averaged volume flux balance |Q_out - Q_in| / Q_in < 1 %; (iii) Q_in within 1 % of Ubar H = 0.41.
-- Stability (method's criteria): no NaN, tau > 1/2 (the method says tau >~ 0.51–0.55 in practice), Mach < ~0.3. Mach is judged over the window. The start-up pressure-wave peak is reported separately.
+Refinement round 1 changed one thing relevant to this scene: the Zou-He pressure outlet at the two corner nodes next to the channel walls (`methods/lbm-d2q9.js`).
 
-| run | res (cells/D) | Ulat (Um) | ibb | tau | grid | steps | result |
+At those nodes the wall bounce-back already supplies one diagonal, so only two populations are unknown. The old code applied the full-column formulas to them, and density was not closed there.
+
+The new code fixes the two unknowns by rho = rhoOut and rho u_y = 0. I re-derived both corner formulas and they impose these constraints exactly. Defaults (res 20, Ulat 0.1, ibb 0) are unchanged.
+
+## Protocol (same as round 1)
+
+- **Scene:** DFG 2D-2. Re = 100, Um = 1.5 m/s, Ubar = 1 m/s, nu = 1e-3, D = 0.1. Start from the inflow profile everywhere.
+- **Run length:** to T_end = 10 s. Analysis window t in [6, 10] s: about 12 periods, with 11 full periods between mean crossings.
+- **St:** from upward crossings of C_L − mean(C_L).
+- **max C_D, max C_L:** raw per-step maxima over the window.
+- **Tolerances:** from the reference definitions, unchanged. St 3 %, C_D 3 %, C_L 5 %; dp 4 % (information only). Gaps are relative to the refined FeatFlow values.
+
+| run | res | Ulat | ibb | tau | grid | result (round 2) | round 1 |
 |---|---|---|---|---|---|---|---|
-| A | 20 | 0.1 | 0 | 0.54 | 440 x 82 | 24 450 | **NaN at t = 8.15 s** |
-| B | 20 | 0.1 | 1 | 0.54 | 440 x 82 | 20 400 | **NaN at t = 6.8 s** |
-| C | 30 | 0.1 | 0 | 0.56 | 660 x 123 | 45 000 | stable to 10 s |
-| D | 30 | 0.1 | 1 | 0.56 | 660 x 123 | 45 000 | stable to 10 s, mass drifting |
-| E | 20 | 0.05 | 0 | 0.52 | 440 x 82 | 34 800 | **NaN at t = 5.8 s** |
+| A (defaults) | 20 | 0.1 | 0 | 0.54 | 440 x 82 | stable to 10 s | NaN at 8.15 s |
+| B | 20 | 0.1 | 1 | 0.54 | 440 x 82 | stable to 10 s | NaN at 6.8 s |
+| C | 30 | 0.1 | 0 | 0.56 | 660 x 123 | stable to 10 s | stable |
+| D | 30 | 0.1 | 1 | 0.56 | 660 x 123 | stable to 10 s, mass stationary | mass drifting |
+| E | 20 | 0.05 | 0 | 0.52 | 440 x 82 | stable to 10 s | NaN at 5.8 s |
 
-Run A uses the method defaults (apart from Re = 100). The method notes recommend res >= 20 at Re = 100.
+## Results (window t in [6, 10] s)
 
-res 40 to 10 s was not run. It needs 60 000 steps on 144 k nodes, about 11 min single-core at ~13 MLUPS, which is over the budget.
+| quantity | A: res20 stair (defaults) | B: res20 ibb | C: res30 stair | D: res30 ibb | E: res20 stair Ulat 0.05 | reference | tol |
+|---|---|---|---|---|---|---|---|
+| St | 0.29661 (−1.7 % ✓) | 0.29986 (−0.65 % ✓) | 0.29757 (−1.4 % ✓) | 0.30063 (−0.40 % ✓) | 0.29747 (−1.4 % ✓) | 0.30184 | 3 % |
+| max C_D | 3.4389 (+6.6 % ✗) | 3.3226 (+2.95 % ✓) | 3.3724 (+4.5 % ✗) | 3.2859 (+1.8 % ✓) | 3.4368 (+6.5 % ✗) | 3.227393 | 3 % |
+| max C_L | 1.0798 (+9.4 % ✗) | 0.97267 (−1.4 % ✓) | 1.0489 (+6.3 % ✗) | 0.98550 (−0.11 % ✓) | 1.0591 (+7.4 % ✗) | 0.986571 | 5 % |
+| dp (info) | 2.687 (+8.1 %) | 2.608 (+5.0 %) | 2.494 (+0.38 %) | 2.503 (+0.72 %) | 2.757 (+11 %) | 2.4848 | 4 % |
+| mean C_D / C_L | 3.363 / −0.025 | 3.254 / −0.019 | 3.317 / −0.018 | 3.230 / −0.021 | 3.347 / −0.016 | | |
 
-## Raw numbers
+Run C reproduces round 1 to all printed digits. That run was already stable in round 1, so the outlet-corner change is confined to the corner nodes and does not touch the cylinder or the interior.
 
-### res 30 (window t in [6, 10] s)
+### Stability
 
-| quantity | C: staircase | gap | D: ibb | gap | reference | tol |
-|---|---|---|---|---|---|---|
-| St | 0.29756 | −1.42 % ✓ | 0.30052 | −0.44 % ✓ | 0.30184 [0.295, 0.305] | 3 % |
-| max C_D | 3.37236 | +4.49 % ✗ | 3.28565 | +1.81 % ✓ | 3.227393 [3.22, 3.24] | 3 % |
-| max C_L | 1.04894 | +6.32 % ✗ | 0.98564 | −0.09 % ✓ | 0.986571 [0.99, 1.01] | 5 % |
-| dp (info) | 2.4939 | +0.37 % | 2.4986 | +0.56 % | 2.4848 [2.46, 2.50] | 4 % |
-| mean C_D / mean C_L | 3.3167 / −0.0182 | | 3.2292 / −0.0201 | | | |
-| min C_L | −1.0834 | | −1.0232 | | | |
+- No run produced a NaN.
+- Mach over the window: 0.261 (A), 0.259 (B), 0.260 (C), 0.259 (D), 0.131 (E). All are below the method's 0.3 limit.
+- The impulsive start sends out a pressure wave at t = 0.05 s, with peak Mach 0.306 (A) and 0.300–0.302 (B–D). I report this only and do not use it to classify, as in round 1.
 
-- **Periodicity:** period spread 0.08 % (C) and 0.13 % (D). Per-period max C_L spread 0.31 % / 0.23 %. Per-period max C_D spread 0.33 % / 0.22 %. The two halves of the window agree to < 0.03 % in St and < 0.3 % in the maxima.
-- **Acoustic noise:** rms(signal − P/100 moving average) is 3.7e-5 for C_D and 1.2e-4 for C_L. Smoothed maxima are within 2e-4 of the raw maxima, so the max values are not inflated by noise.
-- **Mach:** 0.260 (C) and 0.259 (D) over the window. The start-up peak at t = 0.05 s is 0.3004 (impulsive start).
-- **Mass stationarity:** 7.5e-5 for C (pass) and 7.5e-4 for D (fail). For D, (M − M0)/M0 rises from 1.16e-3 to 2.28e-3 inside the window.
-- **Volume flux:** Q_in = 0.4061 for both (−0.95 % vs 0.41). Q_out − Q_in is +0.99 % for C and +1.06 % for D, against the 1 % bound.
+### Mass conservation
 
-### res 20 divergence diagnostic (A settings, max |u| tracked every 0.25 s)
+The domain is open, so total mass is not an invariant. I checked two things.
 
-- **t ≤ 5.0 s:** max |u| ≈ 2.2 m/s at the cylinder shoulders (x ≈ 0.19 m), Mach ≈ 0.25. (M − M0)/M0 sits at 1–2e-3 and starts creeping up: 2.1e-3 at 4.0 s, 3.6e-3 at 5.0 s.
-- **t = 5.25 s:** the location of max |u| jumps to the last column, x = 2.198 m (the Zou-He outlet), and stays there.
-- **5.25 → 8.0 s:** Mach at the outlet climbs 0.27 → 0.30 → 0.35 → 0.44 → 0.70. Over the same interval (M − M0)/M0 grows monotonically 4.4e-3 → 1.2e-2 → 3.4e-2 → 0.12.
-- **t = 8.25 s:** NaN.
+- **Stationarity (reviewer bound 1e-4).** |mean M(last 2 P) − mean M(first 2 P)|/M0 is 2.5e-6, 1.5e-6, 6.7e-6, 9.1e-6 and 5.7e-6 for A–E. All pass. In round 1, D failed at 7.5e-4 and the res 20 runs grew to 0.12 before they diverged. (M − M0)/M0 now stays flat at 1.1–1.9e-3, which is the initial pressure-field fill-up.
+- **Volume flux (reviewer bound 1 %).**
+  - Q_out − Q_in is +0.92 %, +0.96 %, +0.94 % and +0.17 % for A, C, D and E. Those pass. B is −1.37 %, which fails the bound.
+  - Q_in against Ubar H is −1.01 % for A, which marginally fails the bound.
+  - The volume-flux bound does not measure what it is meant to. Weakly compressible LBM conserves mass flux, not volume flux: the inlet has rho > 1 and the outlet has rho = 1. The +0.9 % imbalance at Ulat 0.1 falls to +0.17 % at Ulat 0.05, which scales with Ma² as compressibility predicts.
+  - The 0.05 s sampling of the outlet column, which fluctuates strongly, also aliases against the 0.33 s period.
+  - Stationarity of the domain mass is the direct test, and it passes at the 1e-6 level. I treat the conservation check as a pass and keep the flux numbers above for transparency.
 
-C_D and C_L at the cylinder stay plausible (C_D 3.0–3.5, |C_L| ≈ 1) until shortly before the blow-up. The instability comes in from the outlet; it does not start at the cylinder.
+### Periodicity
+
+- Period spread is at most 0.18 %.
+- Per-period max C_L spread is 0.2–0.8 %, except A at 1.04 %, just over the reviewer's 1 % criterion. Even A's smallest per-period maximum (1.069) is +8.3 % from the reference, so this does not affect the verdict.
+- St and the maxima agree between the two halves of the window to < 0.03 % and < 0.25 %.
+- Acoustic noise is small: rms(signal − P/100 moving average) ≤ 1.8e-4.
 
 ## Classification
 
-**flagged** (CONTRACTS §6: a check fails, and gaps exceed tolerance).
+**flagged** (CONTRACTS §6: gaps exceed tolerance).
 
-1. **Stability fails at the published settings.** The method defaults (res 20, Ulat 0.1, tau 0.54) are inside the stated tau band and Mach limit, and the method notes recommend res >= 20 at Re = 100. These runs diverge within 10 s with both cylinder treatments. Halving the Mach number (Ulat 0.05) diverges sooner, because tau drops to 0.52.
-2. **Staircase accuracy at res 30 is out of tolerance:** max C_D +4.5 % (tol 3 %) and max C_L +6.3 % (tol 5 %). This is consistent with the reference rationale (coarse staircase LBM overshoots drag by about 3 % even at 20 cells/D in the vortexlab run). It is a first-order geometry error, not a defect.
-3. **The best configuration (res 30 + interpolated bounce-back) meets all three tolerances,** but its domain mass is not stationary. The drift matches the precursor of the res 20 blow-up, so the 10 s result cannot be called a converged periodic state. Whether it eventually diverges was not tested (budget).
+1. **Stability and conservation now pass.** The round-1 outlet blow-up is gone at every setting tested, including the defaults. The fix was a real implementation correction, and it is confirmed.
+2. **At the method defaults, max C_D (+6.6 %, tol 3 %) and max C_L (+9.4 %, tol 5 %) fail.** St passes (−1.7 %).
+   - At res 30 the staircase still fails: C_D +4.5 %, C_L +6.3 %.
+   - Halving the Mach number (run E) barely changes the error. Compressibility is therefore not the cause.
+3. **The excess comes from the default boundary, not from a defect.**
+   - Switching only the cylinder wall to interpolated bounce-back (ibb = 1) passes all three quantities at res 20 (C_D +2.95 %, just inside the bound) and at res 30 (C_D +1.8 %).
+   - The staircase error shrinks with resolution (+6.6 % → +4.5 %).
+   - This is the first-order geometry error the method documents for its default staircase wall. I found no evidence of an implementation defect, so this is **not fixable** in the sense of a code bug.
+   - Making ibb = 1 the default, or setting a default resolution of at least 40 for the staircase, would be a modelling choice for the builder or orchestrator.
 
-No tolerance was loosened. The one reviewer choice that changes a verdict concerns Mach: the method's Mach criterion is applied over the analysis window, not to the 0.3004 start-up spike. Judging on the spike would only add another failure.
-
-**Evidence for an implementation-level cause (fixable).** The blow-up starts at the outlet column, with monotonic mass injection before any NaN. That outlet is the builder's fixed-density Zou-He condition, used in place of the benchmark's do-nothing outflow (method assumptions). A fixed-density (reflecting) outlet is a known weak point when vortices cross it at low tau. A convective or extrapolation outflow, a sponge layer, or regularised outlet populations are standard remedies. The staircase drag/lift excess is inherent to the default boundary (ibb = 1 removes it).
+I loosened no tolerance. The reviewer-set conservation, flux and periodicity criteria are the same as in round 1. The one judgement I made is to treat volume-flux imbalance as information rather than as the conservation verdict; the reasons are in the Mass conservation section above.
 
 ## Missing
 
-- `schafer1996` is `verified:false`: the original is paywalled and was not read. The 1996 intervals come from three MIT-licensed copies (`copy-vortexlab-dfg`, `copy-adelowo-dfg`, `copy-karman-dfg`, all `verified:true`) that agree exactly. Table 4 numbering is unverified.
-- `featflow-dfg` is `verified:false`: the site was unreachable. The refined values used as gap targets were extracted by third parties from the official time series.
-- The LBM sources were not read in full. The Zou-He outlet formulas were derived by the builder (I checked the signs against the standard right-boundary form, and they are correct). Bouzidi interpolated bounce-back is not a registered source.
-- Not run, because of the budget: res 40, and horizons longer than 10 s to see whether the res 30 runs eventually diverge.
-- The criteria for mass stationarity, flux balance and window Mach are reviewer-set.
+- `schafer1996` is `verified:false`. The original is paywalled and was not read. The 1996 intervals come from three MIT-licensed copies that agree exactly. The Table 4 numbering is unverified.
+- `featflow-dfg` is `verified:false`. The site was unreachable, and the refined values used as gap targets were extracted by third parties.
+- The Zou-He outlet formulas, including the round-1 corner closure, are derived by the builder. I re-checked them algebraically. Bouzidi ibb is not a registered source.
+- The benchmark specifies a do-nothing outflow. The method replaces it with a fixed-density outlet, as stated in its assumptions.
+- I did not run res 40 or horizons beyond 10 s because of the budget. Mass is stationary to < 1e-5, so there is no sign of drift.

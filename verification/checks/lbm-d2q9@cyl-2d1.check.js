@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* Reviewer check: lbm-d2q9 @ cyl-2d1 (DFG / Schafer-Turek benchmark 2D-1, Re = 20, steady).
- * Reviewer: reviewer-lbm-d2q9-cyl-2d1-r1, round 1, 2026-10-13. Does not modify the method.
- * Usage: node verification/checks/lbm-d2q9@cyl-2d1.check.js          (6 child runs, 4 at a time; ~6 min on 4 idle cores, ~10 min under load)
+ * Reviewer: reviewer-lbm-d2q9-cyl-2d1-r1, round 1, 2026-10-13; re-read and extended by reviewer-lbm-d2q9-cyl-2d1-r2,
+ * round 2, 2026-10-13 (runs G, H added after the refinement of the Zou-He outlet corners). Does not modify the method.
+ * Usage: node verification/checks/lbm-d2q9@cyl-2d1.check.js          (8 child runs, 4 at a time; ~6-10 min on 4 cores)
  *        node verification/checks/lbm-d2q9@cyl-2d1.check.js --quick  (res 20 only, T = 20 s; smoke test)
  * Prints a JSON summary on stdout.
  *
@@ -20,6 +21,8 @@
  *   D: res 30, Ulat 0.1, ibb 0, T = 35 s (grid trend)
  *   E: res 10, Ulat 0.1, ibb 0, T = 150 s (lowest resolution the method's parameter range allows: late-time stability)
  *   F: res 10, Ulat 0.05, ibb 0, T = 150 s (same, Mach halved, tau 0.55)
+ *   G: res 10, Ulat 0.02, ibb 0, T = 150 s (lowest Ulat the method allows: tau 0.52, late-time stability)  [round 2]
+ *   H: res 20, Ulat 0.05, ibb 0, T = 100 s (Mach sensitivity at the default grid, tau 0.6)                [round 2]
  * Checks:
  *   conservation: open channel -> total mass is not an invariant. Steady state requires (i) domain mass
  *     stationary: |M(T) - M(T-10 s)|/M0 < 1e-6 (reviewer bound) and (ii) mass-flux balance
@@ -106,7 +109,9 @@ const RUNS = quick ? [{ name: 'A', res: 20, ibb: 0, Ulat: 0.1, T: 20 }] : [
   { name: 'A', res: 20, ibb: 0, Ulat: 0.1, T: 60 },
   { name: 'B', res: 20, ibb: 1, Ulat: 0.1, T: 60 },
   { name: 'E', res: 10, ibb: 0, Ulat: 0.1, T: 150 },
-  { name: 'F', res: 10, ibb: 0, Ulat: 0.05, T: 150 }
+  { name: 'F', res: 10, ibb: 0, Ulat: 0.05, T: 150 },
+  { name: 'G', res: 10, ibb: 0, Ulat: 0.02, T: 150 },
+  { name: 'H', res: 20, ibb: 0, Ulat: 0.05, T: 100 }
 ];
 
 function runOne(r) {

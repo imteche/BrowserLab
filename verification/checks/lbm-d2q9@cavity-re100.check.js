@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* Reviewer check: lbm-d2q9 @ cavity-re100 (lid-driven cavity, Re = 100, steady state).
- * Reviewer: reviewer-lbm-d2q9-cavity-re100-r1, round 1, 2026-10-13. Does not modify the method.
- * Usage: node "verification/checks/lbm-d2q9@cavity-re100.check.js"
+ * Reviewer: reviewer-lbm-d2q9-cavity-re100-r1, round 1, 2026-10-13; re-read and re-run unchanged by
+ * reviewer-lbm-d2q9-cavity-re100-r2, round 2, 2026-10-13 (added the optional N = 256 run). Does not modify the method.
+ * Usage: node "verification/checks/lbm-d2q9@cavity-re100.check.js"   (add N256=1 for the extra N = 256 run, ~9 min more)
  * Prints a JSON summary on stdout (runtime ~5-6 min on one core).
  *
  * Protocol
@@ -100,7 +101,8 @@ function runCase(N, Ulat, resTol) {
 const r64 = runCase(64, 0.1, 1e-7);
 const P = runCase(128, 0.1, 1e-8);
 const rMa = runCase(128, 0.05, 1e-7);
-const runs = [r64, P, rMa];
+const r256 = process.env.N256 === '1' ? runCase(256, 0.1, 1e-7) : null;   // information only (grid trend)
+const runs = [r64, P, rMa].concat(r256 ? [r256] : []);
 
 const stabOK = !P.nan && P.tau > 0.5 && P.maxMach < 0.3;
 // Mass criterion (reviewer-set): the update conserves sum(f) exactly in exact arithmetic (bounce-back and the

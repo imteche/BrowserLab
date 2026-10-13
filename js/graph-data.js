@@ -15,6 +15,10 @@
    "detail": "explicit/symplectic Euler, RK4, LBM, ψ–ω FD, Stable Fluids: 6 builders, 13 reviews, 1 refinement with code change → fresh re-review of all LBM experiments."
   },
   {
+   "name": "Wave 1b · LBM re-verification",
+   "detail": "Code changed by refinement → 5 fresh reviewers re-ran every LBM experiment. TG and cylinder 2D-1 moved flagged → matched; cylinder 2D-2 remains flagged (staircase default; interpolated bounce-back option passes). No further defect found, loop closed."
+  },
+  {
    "name": "Wave 2 · Particle methods",
    "detail": "WCSPH, PBF, MLS-MPM: 3 builders, 4 reviews, 1 refinement (declined: no defect)."
   },
@@ -132,11 +136,25 @@
    "detail": "N=128 Ulat=0.1 steady run (residual<1e-8): u gap 0.0051, v gap 0.0060 (tol 0.02), psi_min 1.22% (tol 3%), centre 0.0025 (tol 0.02); mass drift 1.7e-12 (round-off), Ma 0.17, tau 0.884, no NaN. Ghia original verified:false, values from open verified copies; recorded in missing."
   },
   {
+   "id": "V-lbm-d2q9@cavity-re100-r2",
+   "type": "re-review",
+   "label": "re: cavity-re100 · lbm-d2q9",
+   "status": "matched",
+   "detail": "Re-run after refinement round 1 (TG init and cylinder outlet changes; cavity code path untouched): identical numbers (u 0.0051, v 0.0060, psi_min 1.22%, centre 0.0025; mass 1.7e-12, Ma 0.17). Added N=256 (tau 1.268): u 0.0049, v 0.0074, psi_min 0.60%, centre 0.0029, all within tolerance."
+  },
+  {
    "id": "V-lbm-d2q9@cavity-re1000-r1",
    "type": "review",
    "label": "cavity-re1000 · lbm-d2q9",
    "status": "matched",
    "detail": "N=192 Ulat=0.1 (tau 0.558): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.39% Ghia / 2.10% Erturk (tol 3%), centre 0.0030 (tol 0.02); mass drift 8.9e-12, Ma 0.167, no NaN; run truncated at residual 7.4e-6 with remaining transient <= 3e-5 bounded from converged N=128. N=128 "
+  },
+  {
+   "id": "V-lbm-d2q9@cavity-re1000-r2",
+   "type": "re-review",
+   "label": "re: cavity-re1000 · lbm-d2q9",
+   "status": "matched",
+   "detail": "Re-run from scratch after refinement (TG init and cylinder outlet only; cavity path untouched, N=128/64 results bit-identical to round 1). N=192 (t=107.25, residual 2.0e-6): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.38% Ghia / 2.09% Erturk (tol 3%), centre 0.0030 (tol 0"
   },
   {
    "id": "V-lbm-d2q9@cyl-2d1-r1",
@@ -146,6 +164,13 @@
    "detail": "Default protocol (res 20, Ulat 0.1) passes all three suggested tolerances (cD +2.11%, cL +0.00096, dp +1.64%; none inside the 1996 intervals), steady, mass-flux balanced, Ma 0.24. Flagged: at res 10 (in the method range; tau 0.6/0.55, Ma 0.24/0.12 satisfy its stated criterion) the solution leaves th"
   },
   {
+   "id": "V-lbm-d2q9@cyl-2d1-r2",
+   "type": "re-review",
+   "label": "re: cyl-2d1 · lbm-d2q9",
+   "status": "matched",
+   "detail": "After the outlet-corner fix, re-run from scratch: defaults unchanged (cD +2.11%, cL +0.00096, dp +1.64%, all within tolerance; steady; flux balance 5e-5). All 8 runs in the allowed range (res 10-40, Ulat 0.02-0.1, ibb 0/1) stable; res 10 at Ulat 0.1/0.05/0.02 steady to 150 s. Coarse/low-Ulat non-def"
+  },
+  {
    "id": "V-lbm-d2q9@cyl-2d2-r1",
    "type": "review",
    "label": "cyl-2d2 · lbm-d2q9",
@@ -153,11 +178,25 @@
    "detail": "Method defaults (res 20, tau 0.54) diverge at t = 8.15 s (6.8 s ibb; 5.8 s at Ulat 0.05) from the Zou-He pressure outlet (monotonic mass growth, max |u| at last column). res 30 staircase stable but max C_D +4.5% (tol 3%), max C_L +6.3% (tol 5%); St -1.4% passes. res 30 ibb passes all three gaps but "
   },
   {
+   "id": "V-lbm-d2q9@cyl-2d2-r2",
+   "type": "re-review",
+   "label": "re: cyl-2d2 · lbm-d2q9",
+   "status": "flagged",
+   "detail": "Outlet corner fix works: all runs stable to 10 s, mass stationary (< 1e-5). Defaults (res 20 staircase) give St -1.7% (pass) but max C_D +6.6% (tol 3%) and max C_L +9.4% (tol 5%); res 30 staircase C_D +4.5%, C_L +6.3%. Interpolated bounce-back (ibb = 1) passes all three at res 20 and 30. Remaining g"
+  },
+  {
    "id": "V-lbm-d2q9@tg-re100-r1",
    "type": "review",
    "label": "tg-re100 · lbm-d2q9",
    "status": "flagged",
    "detail": "All reference gaps pass at default N = 128 (KE 0.32% max over every step, tol 1%; L2 0.0013, tol 0.02; 2nd order under diffusive scaling), mass/momentum to round-off, stable. Energy check fails: initial non-equilibrium written with the pre-collision factor -tau into the post-collision buffer (should"
+  },
+  {
+   "id": "V-lbm-d2q9@tg-re100-r2",
+   "type": "re-review",
+   "label": "re: tg-re100 · lbm-d2q9",
+   "status": "matched",
+   "detail": "Refinement applied -(tau-1). Re-run from scratch: KE monotone in all 7 runs, KE gap max 0.034% on [0, 5] (0.16% at t = 50), L2 <= 0.0010, second order under diffusive scaling, mass/momentum to round-off, stable. All gaps within tolerance, no tolerances loosened."
   },
   {
    "id": "F-lbm-d2q9-r1",
@@ -364,8 +403,16 @@
    "V-lbm-d2q9@cavity-re100-r1"
   ],
   [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cavity-re100-r2"
+  ],
+  [
    "B-lbm-d2q9",
    "V-lbm-d2q9@cavity-re1000-r1"
+  ],
+  [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cavity-re1000-r2"
   ],
   [
    "B-lbm-d2q9",
@@ -376,6 +423,10 @@
    "F-lbm-d2q9-r1"
   ],
   [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cyl-2d1-r2"
+  ],
+  [
    "B-lbm-d2q9",
    "V-lbm-d2q9@cyl-2d2-r1"
   ],
@@ -384,12 +435,20 @@
    "F-lbm-d2q9-r1"
   ],
   [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cyl-2d2-r2"
+  ],
+  [
    "B-lbm-d2q9",
    "V-lbm-d2q9@tg-re100-r1"
   ],
   [
    "V-lbm-d2q9@tg-re100-r1",
    "F-lbm-d2q9-r1"
+  ],
+  [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@tg-re100-r2"
   ],
   [
    "R-ptc",
@@ -512,7 +571,15 @@
    "UI"
   ],
   [
+   "V-lbm-d2q9@cavity-re100-r2",
+   "UI"
+  ],
+  [
    "V-lbm-d2q9@cavity-re1000-r1",
+   "UI"
+  ],
+  [
+   "V-lbm-d2q9@cavity-re1000-r2",
    "UI"
   ],
   [
@@ -520,11 +587,23 @@
    "UI"
   ],
   [
+   "V-lbm-d2q9@cyl-2d1-r2",
+   "UI"
+  ],
+  [
    "V-lbm-d2q9@cyl-2d2-r1",
    "UI"
   ],
   [
+   "V-lbm-d2q9@cyl-2d2-r2",
+   "UI"
+  ],
+  [
    "V-lbm-d2q9@tg-re100-r1",
+   "UI"
+  ],
+  [
+   "V-lbm-d2q9@tg-re100-r2",
    "UI"
   ],
   [

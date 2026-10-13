@@ -7716,8 +7716,8 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 
 </script>
 <script>/* verification/results/lbm-d2q9@cavity-re100.js */
-/* Verification record: lbm-d2q9 @ cavity-re100. Reviewer: reviewer-lbm-d2q9-cavity-re100-r1 (not the builder).
- * Numbers from verification/checks/lbm-d2q9@cavity-re100.check.js; report in
+/* Verification record: lbm-d2q9 @ cavity-re100. Reviewer: reviewer-lbm-d2q9-cavity-re100-r2 (not the builder).
+ * Numbers from verification/checks/lbm-d2q9@cavity-re100.check.js (N = 256 row: same script with N256=1); report in
  * verification/reports/lbm-d2q9@cavity-re100.md. */
 (function (LAB) {
   'use strict';
@@ -7728,12 +7728,12 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     claim: 'D2Q9 BGK (halfway bounce-back walls, moving-wall bounce-back lid) on 128^2 cells at Ulat = 0.1 (tau = 0.884) reproduces ' +
       'Ghia et al. (1982) at Re = 100: max |u - u_Ghia| = 0.0051 U on x = 0.5 and max |v - v_Ghia| = 0.0060 U on y = 0.5 (tol 0.02), ' +
       'psi_min = -0.102161 (1.22% from -0.103423, tol 3%), primary-vortex centre (0.6158, 0.7369) within 0.0025 of (0.6172, 0.7344) (tol 0.02); ' +
-      'total mass conserved to round-off (1.7e-12 relative after 67968 steps).',
+      'total mass conserved to round-off (1.7e-12 relative after 67968 steps). Also within all tolerances at N = 64 and N = 256.',
     conditions: {
       Re: 100, N: 128, Ulat: 0.1, tau: 0.884, Mach_max: 0.169, steps: 67968, t_end: 53.1,
       convergence: 'residual (max |du| per unit time) < 1e-8; u_vcl / v_hcl changed < 1.2e-10 over the last 8.1 time units',
-      extra_runs: 'N = 64, Ulat = 0.1 (tau 0.692) and N = 128, Ulat = 0.05 (tau 0.692) to residual < 1e-7',
-      not_run: 'N = 256 (about 12 min per converged run at ~12 MLUPS; over the review budget)',
+      extra_runs: 'N = 64, Ulat = 0.1 (tau 0.692); N = 128, Ulat = 0.05 (tau 0.692); N = 256, Ulat = 0.1 (tau 1.268); all to residual < 1e-7',
+      method_change_since_r1: 'refinement round 1 changed only setEq with gradients (Taylor-Green init) and the cylinder pressure outlet; neither code path is used by the cavity, and r2 numbers reproduce r1 to all printed digits',
       check: 'verification/checks/lbm-d2q9@cavity-re100.check.js'
     },
     reference: ['cavity-re100-ghia-u', 'cavity-re100-ghia-v', 'cavity-re100-ghia-psimin', 'cavity-re100-ghia-center'],
@@ -7746,42 +7746,45 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     checks: [
       { name: 'mass conservation', status: 'pass',
         detail: 'sum(rho) relative drift 1.68e-12 after 67968 steps (2.5e-17 per step), below the reviewer bound 10 eps per step (1.5e-10 total). ' +
-          'N = 64: 1.1e-12 / 29550 steps; N = 128, Ulat 0.05: 4.3e-12 / 116480 steps; drift grows with step count as round-off does. ' +
+          'N = 64: 1.1e-12 / 29550 steps; N = 128, Ulat 0.05: 4.3e-12 / 116480 steps; N = 256: 1.8e-12 / 100096 steps. ' +
           'Momentum and energy are not invariants of the driven viscous cavity.' },
       { name: 'steady state reached', status: 'pass',
         detail: 'residual 1.0e-8 at t = 53.1; over the preceding 8.1 time units u_vcl changes by 7.5e-11, v_hcl by 1.1e-10, psi_min by 2.6e-11 (all << 1% of tolerances).' },
       { name: 'stability', status: 'pass',
-        detail: 'no NaN/blow-up in any run; tau = 0.884 > 0.5 (0.692 in the other runs); max Mach |u|/c_s = 0.169 < 0.3 (method criterion; Ulat 0.05 run: 0.085).' },
+        detail: 'no NaN/blow-up in any run; tau = 0.884 > 0.5 (0.692 / 1.268 in the other runs); max Mach |u|/c_s = 0.169 < 0.3 (method criterion; Ulat 0.05 run: 0.085; N = 256: 0.172).' },
       { name: 'quantitative vs Ghia (u, v tables; psi_min; centre)', status: 'pass',
-        detail: 'all four gaps within reference tolerances at N = 128; also at N = 64 (u 0.0063, v 0.0036, psi 2.43%, centre 0.0026). ' +
+        detail: 'all four gaps within reference tolerances at N = 128; also at N = 64 (u 0.0063, v 0.0036, psi 2.43%, centre 0.0026) and N = 256 (u 0.0049, v 0.0074, psi 0.60%, centre 0.0029). ' +
           'Halving Ulat to 0.05 at N = 128 changes gaps by < 5e-4 (u 0.0051, v 0.0064, psi 1.17%), so Mach (compressibility) error is not the dominant error.' },
       { name: 'weak compressibility (information)', status: 'n/a',
-        detail: 'max |div u| of the lattice velocity = 4.1 U/L at N = 128 (3.3 at N = 64, 6.6 at Ulat 0.05). Located by maximum only (the probe does not report where); ' +
-          'presumably the lid-corner velocity singularity. No criterion is stated by the method or reference; not used for classification.' },
+        detail: 'max |div u| of the lattice velocity = 4.1 U/L at N = 128 (3.3 at N = 64, 6.6 at Ulat 0.05). Maximum only; presumably at the lid-corner singularity. No criterion stated; not used for classification.' },
       { name: 'grid trend (information)', status: 'n/a',
-        detail: 'psi_min error 2.43% (N = 64) -> 1.22% (N = 128), ratio 2.0, i.e. first-order-like at fixed Ulat. With Ulat fixed, tau rises with N (0.692 -> 0.884), ' +
-          'and BGK halfway bounce-back has a tau-dependent effective wall position, which would give an O(h) viscosity-dependent error; this is a known BGK property, not a demonstrated implementation defect. ' +
-          'psi_min under-shoots Ghia while u/v profiles are slightly larger in magnitude near the lid.' }
+        detail: 'psi_min error 2.43% (N = 64) -> 1.22% (128) -> 0.60% (256): ratio 2.0 each step, first-order at fixed Ulat (tau 0.692 -> 0.884 -> 1.268). ' +
+          'Consistent with the tau-dependent wall position of BGK halfway bounce-back (known property, not a demonstrated defect). u gap 0.0063 -> 0.0051 -> 0.0049 and v gap 0.0036 -> 0.0060 -> 0.0074 level off at a few 1e-3, ' +
+          'comparable to the accuracy of Ghia\'s own 129^2 second-order solution; v gap growth is near the downward jet (x = 0.86) and stays at 37% of tolerance.' }
     ],
     missing: [
       'ghia1982 is registered verified:false: original paper paywalled and not read. u/v tables come from open, mutually identical transcriptions (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-cfdgasman-ghia; verified:true copies); table numbers (I, II) not checked against the original.',
       'psi_min = -0.103423 is quoted from a single copy (copy-cfdgasman-ghia README) plus a 5-digit search snippet; vortex-centre value from a single copy (copy-sujaldave-ghia, Table V per that copy). Table numbers III/V unverified.',
       'LBM method sources (qian1992, he1997, ladd1994, zou1997, hou1995) were not read in full by the researcher (abstracts/snippets only); equation numbers unverified. Hou et al. LBM cavity numbers not obtained for an LBM-specific comparison.',
-      'N = 256 not run (runtime budget), so convergence order rests on two grids; a diffusive-scaling sequence (fixed tau) was not run.',
+      'N = 256 converged only to residual < 1e-7 (not 1e-8) and without the steadiness snapshot test; it is used for the grid trend only. A diffusive-scaling sequence (fixed tau, Ulat ~ 1/N) was not run.',
       'Ghia values are themselves a 2nd-order 129^2 solution; no higher-accuracy Re = 100 reference is registered.',
-      'Steadiness (1% of tolerances) and mass (10 eps per step) criteria are reviewer-set; no source specifies them. The mass bound replaced a first-draft fixed 1e-12 cap that did not scale with step count (the measured drift 1.7e-12 is round-off either way).'
+      'Steadiness (1% of tolerances) and mass (10 eps per step) criteria are reviewer-set; no source specifies them.'
     ],
-    reviewer: 'reviewer-lbm-d2q9-cavity-re100-r1', round: 1, date: '2026-10-13',
-    history: [ { round: 1, status: 'matched',
-      reason: 'N=128 Ulat=0.1 steady run (residual<1e-8): u gap 0.0051, v gap 0.0060 (tol 0.02), psi_min 1.22% (tol 3%), centre 0.0025 (tol 0.02); mass drift 1.7e-12 (round-off), Ma 0.17, tau 0.884, no NaN. Ghia original verified:false, values from open verified copies; recorded in missing.' } ]
+    reviewer: 'reviewer-lbm-d2q9-cavity-re100-r2', round: 2, date: '2026-10-13',
+    history: [
+      { round: 1, status: 'matched',
+        reason: 'N=128 Ulat=0.1 steady run (residual<1e-8): u gap 0.0051, v gap 0.0060 (tol 0.02), psi_min 1.22% (tol 3%), centre 0.0025 (tol 0.02); mass drift 1.7e-12 (round-off), Ma 0.17, tau 0.884, no NaN. Ghia original verified:false, values from open verified copies; recorded in missing.' },
+      { round: 2, status: 'matched',
+        reason: 'Re-run after refinement round 1 (TG init and cylinder outlet changes; cavity code path untouched): identical numbers (u 0.0051, v 0.0060, psi_min 1.22%, centre 0.0025; mass 1.7e-12, Ma 0.17). Added N=256 (tau 1.268): u 0.0049, v 0.0074, psi_min 0.60%, centre 0.0029, all within tolerance.' }
+    ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
 <script>/* verification/results/lbm-d2q9@cavity-re1000.js */
-/* Verification record: lbm-d2q9 @ cavity-re1000. Reviewer: reviewer-lbm-d2q9-cavity-re1000-r1 (not the builder).
- * Numbers from verification/checks/lbm-d2q9@cavity-re1000.check.js; report in
- * verification/reports/lbm-d2q9@cavity-re1000.md. */
+/* Verification record: lbm-d2q9 @ cavity-re1000. Reviewer: reviewer-lbm-d2q9-cavity-re1000-r2 (not the builder).
+ * Round 2, after the refinement round. Numbers from verification/checks/lbm-d2q9@cavity-re1000.check.js;
+ * report in verification/reports/lbm-d2q9@cavity-re1000.md. */
 (function (LAB) {
   'use strict';
   LAB.registerVerification({
@@ -7790,133 +7793,141 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     status: 'matched',
     claim: 'D2Q9 BGK (halfway bounce-back walls, moving-wall bounce-back lid) on 192^2 cells at Ulat = 0.1 (tau = 0.558) reproduces ' +
       'the Re = 1000 cavity centreline profiles of Ghia et al. (1982) to 0.0074 U (u) and 0.0067 U (v) and of Erturk et al. (2005) to 0.0102 U (tol 0.03); ' +
-      'psi_min = -0.116291 is 1.39% from Ghia and 2.10% from Erturk (tol 3%); primary-vortex centre (0.5317, 0.5655) within 0.0030 of Ghia (tol 0.02). ' +
+      'psi_min = -0.116299 is 1.38% from Ghia and 2.09% from Erturk (tol 3%); primary-vortex centre (0.5317, 0.5655) within 0.0030 of Ghia (tol 0.02). ' +
       'Also passes at the method default N = 128 except psi_min vs Erturk (3.15%, tol 3%). Total mass conserved to round-off. ' +
-      'psi_min converges at first order in N (acoustic scaling); a first-order Richardson estimate from N = 128/192 gives -0.11879, 0.003% from Erturk.',
+      'psi_min converges at first order in N (acoustic scaling); a first-order Richardson estimate from N = 128/192 gives -0.11881, 0.02% from Erturk.',
     conditions: {
-      Re: 1000, N: 192, Ulat: 0.1, tau: 0.5576, Mach_max: 0.167, steps: 180768, t_end: 94.15,
-      convergence: 'stopped by the wall-clock cap at residual 7.4e-6 (max |du| per unit time); the converged N = 128 history shows changes after t = 90 of <= 3e-5 U in the profile gaps and 1.7e-5 in psi_min',
-      extra_runs: 'N = 128 Ulat 0.1 (tau 0.538, residual 9.8e-8 at t = 146.9); N = 64 Ulat 0.1 (tau 0.519, t = 150, residual 1.6e-7); N = 128 Ulat 0.05 (tau 0.519, truncated at t = 77.75, compared at t = 70)',
-      not_run: 'N = 256 (about 13.5 s per time unit at 12 MLUPS; t >= 60 needed, i.e. > 13 min; a contended first attempt reached only t = 19 in 530 s)',
+      Re: 1000, N: 192, Ulat: 0.1, tau: 0.5576, Mach_max: 0.167, steps: 205920, t_end: 107.25,
+      convergence: 'stopped by the wall-clock cap (555 s) at residual 2.0e-6 (max |du| per unit time); over t = 90 -> 107 its gaps change by <= 2e-5 U and psi_min by 1.2e-5; the converged N = 128 history changes after t = 110 by <= 1e-5 U in the gaps and 4e-6 in psi_min',
+      extra_runs: 'N = 128 Ulat 0.1 (tau 0.538, residual 9.8e-8 at t = 146.9); N = 64 Ulat 0.1 (tau 0.519, t = 150, residual 1.6e-7); N = 128 Ulat 0.05 (tau 0.519, truncated at t = 98, compared at t = 90)',
+      not_run: 'N = 256 (about 13.5 s per time unit at ~12 MLUPS; t >= 60 needed, i.e. > 13 min for one run, beyond the ~10 min budget)',
       check: 'verification/checks/lbm-d2q9@cavity-re1000.check.js'
     },
     reference: ['cavity-re1000-ghia-u', 'cavity-re1000-ghia-v', 'cavity-re1000-erturk-u', 'cavity-re1000-ghia-psimin', 'cavity-re1000-erturk-psimin', 'cavity-re1000-ghia-center'],
     gaps: [
       { quantity: 'max |u - u_Ghia| on x = 0.5 (17 rows; worst at y = 0.0703), N = 192', value: 0.00739, tolerance: 0.03, unit: 'U_lid', pass: true },
-      { quantity: 'max |v - v_Ghia| on y = 0.5 (17 rows; worst at x = 0.8594), N = 192', value: 0.00670, tolerance: 0.03, unit: 'U_lid', pass: true },
-      { quantity: 'max |u - u_Erturk| on x = 0.5 (23 rows; worst at y = 0.12), N = 192', value: 0.01017, tolerance: 0.03, unit: 'U_lid', pass: true },
-      { quantity: 'psi_min relative error vs Ghia -0.117929 (sim -0.116291), N = 192', value: 0.01389, tolerance: 0.03, unit: 'rel', pass: true },
-      { quantity: 'psi_min relative error vs Erturk -0.118781 (sim -0.116291), N = 192', value: 0.02096, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max |v - v_Ghia| on y = 0.5 (17 rows; worst at x = 0.8594), N = 192', value: 0.00668, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'max |u - u_Erturk| on x = 0.5 (23 rows; worst at y = 0.12), N = 192', value: 0.01016, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'psi_min relative error vs Ghia -0.117929 (sim -0.116299), N = 192', value: 0.01382, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'psi_min relative error vs Erturk -0.118781 (sim -0.116299), N = 192', value: 0.02090, tolerance: 0.03, unit: 'rel', pass: true },
       { quantity: 'primary-vortex centre max(|dx|,|dy|) vs Ghia (0.5313, 0.5625) (sim (0.5317, 0.5655)), N = 192', value: 0.00303, tolerance: 0.02, unit: 'L', pass: true }
     ],
     checks: [
       { name: 'mass conservation', status: 'pass',
-        detail: 'sum(rho) relative drift 8.9e-12 after 180768 steps at N = 192 (4.9e-17 per step), below the reviewer bound 10 eps per step (4.0e-10). ' +
-          'N = 128: 9.3e-12 / 188032 steps; N = 64: 4.7e-12 / 96000; N = 128 Ulat 0.05: 9.8e-12 / 199040. Momentum and energy are not invariants of the driven viscous cavity.' },
+        detail: 'sum(rho) relative drift 1.0e-11 after 205920 steps at N = 192 (4.9e-17 per step), below the reviewer bound 10 eps per step (4.6e-10 total). ' +
+          'N = 128: 9.3e-12 / 188032 steps; N = 64: 4.7e-12 / 96000; N = 128 Ulat 0.05: 1.2e-11 / 250880. Momentum and energy are not invariants of the driven viscous cavity.' },
       { name: 'steady state', status: 'pass',
-        detail: 'N = 192 truncated by the wall cap at t = 94.15, residual 7.4e-6; over t = 80 -> 94 its gaps change by <= 3e-5 U and psi_min by 2.2e-5. ' +
-          'The N = 128 run (residual 9.8e-8 at t = 146.9) changes by <= 3e-5 U in the gaps and 1.7e-5 in psi_min after t = 90, so the remaining N = 192 transient is far below every margin.' },
+        detail: 'N = 192 truncated by the wall cap at t = 107.25, residual 2.0e-6; over t = 90 -> 107 its gaps change by <= 2e-5 U and psi_min by 1.2e-5. ' +
+          'The N = 128 run (residual 9.8e-8 at t = 146.9) changes by <= 1e-5 U in the gaps and 4e-6 in psi_min after t = 110, so the remaining N = 192 transient is far below every margin (smallest: 0.009 rel on psi_min vs Erturk).' },
       { name: 'stability', status: 'pass',
         detail: 'no NaN/blow-up in any run; tau = 0.558 (N = 192), 0.538 (N = 128), 0.519 (N = 64 and N = 128 Ulat 0.05), all > 0.5 and at or above the method\'s practical BGK floor ~0.51-0.55; ' +
           'max Mach |u|/c_s = 0.167 < 0.3 (method criterion; 0.082 at Ulat 0.05).' },
       { name: 'quantitative vs Ghia / Erturk', status: 'pass',
         detail: 'All six gaps within reference tolerances at N = 192. N = 128 (method default): u 0.0124, v 0.0096, Erturk u 0.0156, psi_min 2.45% (Ghia) pass, but 3.15% vs Erturk psi_min (tol 3%) fails, centre 0.0032. ' +
-          'N = 64: u 0.0288, v 0.0250 pass, Erturk u 0.0330 fails, psi_min 5.6% / 6.3% fail.' },
+          'N = 64: u 0.0288, v 0.0250 pass, Erturk u 0.0330 fails, psi_min 5.58% / 6.26% fail.' },
       { name: 'grid convergence (information)', status: 'n/a',
-        detail: 'psi_min -0.111346 / -0.115044 / -0.116291 at N = 64 / 128 / 192: difference ratio 2.97 vs 3.0 expected for first order (h ratio 2, 1.5). At fixed Ulat tau varies with N, so this mixes the O(h) tau-dependent wall location of BGK halfway bounce-back with O(h^2) terms; ' +
-          'first-order Richardson from N = 128/192: -0.11879 (Erturk -0.118781, Botella ~-0.1189). Profile gaps: Ghia u 0.029 -> 0.012 -> 0.0074. Known BGK behaviour, not evidence of an implementation defect.' },
+        detail: 'psi_min -0.111346 / -0.115044 / -0.116299 at N = 64 / 128 / 192: difference ratio 2.95 vs 3.0 expected for first order (h ratio 2, 1.5). At fixed Ulat tau varies with N, so this mixes the O(h) tau-dependent wall location of BGK halfway bounce-back with O(h^2) terms; ' +
+          'first-order Richardson from N = 128/192: -0.11881 (Erturk -0.118781, Botella ~-0.1189). Profile gaps: Ghia u 0.029 -> 0.012 -> 0.0074. Known BGK behaviour, not evidence of an implementation defect.' },
       { name: 'Mach sensitivity (information)', status: 'n/a',
-        detail: 'N = 128, Ulat 0.05 vs 0.1 at equal t = 70: psi_min differs by 0.095%, Ghia u gap by 3e-5, v gap by 6e-4, Erturk u gap by 5e-5. Compressibility error is not the dominant error at Ulat 0.1.' },
+        detail: 'N = 128, Ulat 0.05 vs 0.1 at equal t = 90: psi_min differs by 0.096%, Ghia u gap by 3e-5, v gap by 6e-4, Erturk u gap by 5e-5. Compressibility error is not the dominant error at Ulat 0.1.' },
+      { name: 'regression after refinement (information)', status: 'pass',
+        detail: 'The round-1 refinement changed only the Taylor-Green non-equilibrium initialisation (setEq with gradients) and the cylinder Zou-He outlet corners; neither code path is used by the cavity scene. The re-run N = 128 and N = 64 results are identical to round 1 (same step counts, residuals and gaps), confirming no regression.' },
       { name: 'weak compressibility (information)', status: 'n/a',
         detail: 'max |div u| of the lattice velocity = 14.4 U/L at N = 192 (10.2 at N = 128, 5.5 at N = 64), a single maximum growing with N, consistent with the lid-corner singularity. No stated criterion; not used for classification.' }
     ],
     missing: [
-      'ghia1982 is registered verified:false: original paper paywalled and not read. Re = 1000 u/v tables come from open transcriptions (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-xuaoxiqi-ghia; verified:true) which disagree at one point (v at x = 0.9063: -0.51550 vs -0.51500; majority used; the sim gap there is 0.0006 vs the majority value, 0.0001 vs -0.51500).',
+      'ghia1982 is registered verified:false: original paper paywalled and not read. Re = 1000 u/v tables come from open transcriptions (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-xuaoxiqi-ghia; verified:true) which disagree at one point (v at x = 0.9063: -0.51550 vs -0.51500; majority used; the sim gap there is below 0.001 either way).',
       'Ghia psi_min -0.117929 and vortex centre (0.5313, 0.5625) at Re = 1000 come from search snippets and a single copy (copy-sujaldave-ghia); table numbers unverified.',
       'erturk2005 is registered verified:false: arXiv not reachable from the container. Erturk u table is from the lethe copy (first three entries confirmed by a search snippet); Erturk psi_min -0.118781 from a single search snippet.',
       'botella1998 (spectral) not read; only snippet values in the reference range; not used as a gap.',
-      'N = 256 not run (runtime budget); the primary N = 192 run stopped at residual 7.4e-6 rather than 1e-7 (transient remainder bounded from the N = 128 history). A fixed-tau (diffusive scaling) grid sequence was not run, so the order estimate mixes grid and tau effects.',
+      'N = 256 not run (runtime budget); the primary N = 192 run stopped at residual 2.0e-6 rather than 1e-7 (transient remainder bounded from its own history and the converged N = 128 history). A fixed-tau (diffusive scaling) grid sequence was not run, so the order estimate mixes grid and tau effects.',
       'LBM method sources (qian1992, he1997, ladd1994, zou1997, hou1995) were not read in full by the researcher; hou1995 LBM cavity numbers not obtained for an LBM-specific comparison.',
       'Steadiness and mass (10 eps per step) criteria are reviewer-set; no source specifies them. Sim profiles are evaluated at table coordinates by 4-point Lagrange interpolation of the cell-centre profile (reviewer choice).'
     ],
-    reviewer: 'reviewer-lbm-d2q9-cavity-re1000-r1', round: 1, date: '2026-10-13',
-    history: [ { round: 1, status: 'matched',
-      reason: 'N=192 Ulat=0.1 (tau 0.558): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.39% Ghia / 2.10% Erturk (tol 3%), centre 0.0030 (tol 0.02); mass drift 8.9e-12, Ma 0.167, no NaN; run truncated at residual 7.4e-6 with remaining transient <= 3e-5 bounded from converged N=128. N=128 default fails only Erturk psi_min (3.15%). Ghia/Erturk verified:false via open copies/snippets, recorded in missing.' } ]
+    reviewer: 'reviewer-lbm-d2q9-cavity-re1000-r2', round: 2, date: '2026-10-13',
+    history: [
+      { round: 1, status: 'matched',
+        reason: 'N=192 Ulat=0.1 (tau 0.558): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.39% Ghia / 2.10% Erturk (tol 3%), centre 0.0030 (tol 0.02); mass drift 8.9e-12, Ma 0.167, no NaN; run truncated at residual 7.4e-6 with remaining transient <= 3e-5 bounded from converged N=128. N=128 default fails only Erturk psi_min (3.15%). Ghia/Erturk verified:false via open copies/snippets, recorded in missing.' },
+      { round: 2, status: 'matched',
+        reason: 'Re-run from scratch after refinement (TG init and cylinder outlet only; cavity path untouched, N=128/64 results bit-identical to round 1). N=192 (t=107.25, residual 2.0e-6): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.38% Ghia / 2.09% Erturk (tol 3%), centre 0.0030 (tol 0.02); mass drift 1.0e-11, Ma 0.167, no NaN. N=128 default still fails only Erturk psi_min (3.15%). First-order grid trend, Richardson psi_min -0.11881.' }
+    ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
 <script>/* verification/results/lbm-d2q9@cyl-2d1.js */
-/* Verification record: lbm-d2q9 @ cyl-2d1. Reviewer: reviewer-lbm-d2q9-cyl-2d1-r1 (not the builder).
- * Numbers from verification/checks/lbm-d2q9@cyl-2d1.check.js; report in
- * verification/reports/lbm-d2q9@cyl-2d1.md. */
+/* Verification record: lbm-d2q9 @ cyl-2d1. Reviewer: reviewer-lbm-d2q9-cyl-2d1-r2 (not the builder), round 2.
+ * Numbers from verification/checks/lbm-d2q9@cyl-2d1.check.js (8 runs, re-run from scratch after refinement round 1);
+ * report in verification/reports/lbm-d2q9@cyl-2d1.md. */
 (function (LAB) {
   'use strict';
   LAB.registerVerification({
     id: 'lbm-d2q9@cyl-2d1',
     method: 'lbm-d2q9', scene: 'cylinder', experiment: 'cyl-2d1',
-    status: 'flagged',
-    claim: 'At the method defaults (20 cells/D, Um_lat = 0.1, tau = 0.7, staircase bounce-back) D2Q9 BGK reaches a steady 2D-1 state ' +
+    status: 'matched',
+    claim: 'At the method defaults (20 cells/D, Um_lat = 0.1, tau = 0.7, staircase bounce-back, Zou-He pressure outlet) D2Q9 BGK reaches a steady 2D-1 state ' +
       'with cD = 5.6974 (+2.11% vs 5.5795, tol 3%), cL = 0.01158 (+0.00096, tol 0.003) and dp = 0.11945 (+1.64% vs 0.11752, tol 3%); ' +
-      'none of the three lies inside the narrow 1996 intervals. Grid refinement moves cD and dp toward the reference ' +
-      '(res 30: +1.69% / 0.00%; res 40 at t = 25 s, not yet steady: +0.83% / -0.21%). FLAGGED because at res = 10 cells/D, inside the ' +
-      'method\'s parameter range and its stated stability criterion (tau 0.6 / 0.55, Ma 0.24 / 0.12), the run drifts away from the ' +
-      'steady state after t ~ 40 s through an instability that starts in the outlet column and blows up (Ma 1.34 by t = 150 s; NaN at t = 139 s with Ulat 0.05).',
+      'none of the three lies inside the narrow 1996 intervals. After the round-1 outlet-corner fix every run in the method range ' +
+      '(res 10/20/30/40, Ulat 0.02-0.1) stays stable; the res-10 runs that diverged in round 1 are now steady to 1e-12 over 150 s.',
     conditions: {
       Re: 20, res: 20, Ulat: 0.1, ibb: 0, tau: 0.7, nx: 440, ny: 82, steps: 36000, t_end: 60, Mach_max: 0.239,
       convergence: 'over the last 10 s: |dcD|/cD = 1.8e-6, |dcL| = 5.5e-6, |ddp|/dp = 1.8e-6, |dM|/M0 = 6.4e-7 (reviewer bound 1e-5 / 1e-6)',
-      extra_runs: 'res 20 ibb=1 (T 60 s); res 30 (T 35 s); res 40 (T 25 s, not converged); res 10 Ulat 0.1 and 0.05 (T 150 s)',
-      not_run: 'converged res 40 / res 80 (~40 s physical at res 40 needs > 9 min alone; over budget)',
+      extra_runs: 'res 20 ibb=1 (T 60 s); res 20 Ulat 0.05 (T 100 s); res 30 (T 35 s); res 40 (T 25 s, not converged); res 10 Ulat 0.1 / 0.05 / 0.02 (T 150 s)',
+      not_run: 'converged res 40 / res 80 (runtime budget); Ulat > ~0.12 (peak Mach would exceed the stated 0.3 criterion)',
       check: 'verification/checks/lbm-d2q9@cyl-2d1.check.js'
     },
     reference: ['cylinder-2d1-cd', 'cylinder-2d1-cl', 'cylinder-2d1-dp'],
     gaps: [
       { quantity: 'cD relative gap vs 5.57953523384 (res 20, sim 5.69743; interval [5.57, 5.59] not met)', value: 0.02113, tolerance: 0.03, unit: 'rel', pass: true },
       { quantity: 'cL absolute gap vs 0.010618948146 (res 20, sim 0.011578; interval [0.0104, 0.0110] not met)', value: 0.00096, tolerance: 0.003, unit: 'abs', pass: true },
-      { quantity: 'dp relative gap vs 0.11752016697 (res 20, sim 0.119450; interval [0.1172, 0.1176] not met)', value: 0.01643, tolerance: 0.03, unit: 'rel', pass: true }
+      { quantity: 'dp relative gap vs 0.11752016697 (res 20, sim 0.119450; interval [0.1172, 0.1176] not met)', value: 0.01642, tolerance: 0.03, unit: 'rel', pass: true }
     ],
     checks: [
-      { name: 'stability (method criterion, all allowed resolutions)', status: 'fail',
-        detail: 'res 10 (lowest value of the method\'s cylinder res range 10-80), Ulat 0.1: tau 0.6, Ma 0.235 on the plateau, yet after t ~ 40 s total mass and the outlet ' +
-          'velocity grow without bound: at t = 53 s the speed maximum (0.465 m/s) sits on the outlet column (x = 2.195, y = 0.205) and the outlet wall-adjacent rows carry ' +
-          'u = 0.187 m/s (no-slip walls; 0.007 m/s at res 20); by t = 150 s Ma = 1.34, mass +42%, Q_out/Q_in = 6.3. Ulat 0.05 (tau 0.55, Ma 0.12): same outlet onset, NaN at t = 139 s. ' +
-          'Both runs satisfy the stated criterion "tau > 1/2, Ma < 0.3" and the method notes only warn about res 10 at Re 100.' },
+      { name: 'stability (method criterion, all allowed resolutions)', status: 'pass',
+        detail: '8 runs, none NaN, max Mach <= 0.2414 in every run. res 10 (lowest of range 10-80) at Ulat 0.1 / 0.05 / 0.02 (tau 0.6 / 0.55 / 0.52): steady from t ~ 40 s to t = 150 s ' +
+          '(|dcD|/cD <= 1.1e-12, |dM|/M0 <= 5e-14 over the last 10 s); outlet wall-adjacent rows u = 0.0145 m/s (res 20: 0.0073, res 30: 0.0049, res 40: 0.0037, i.e. first-order wall slip), ' +
+          'outlet mid-channel u = 0.297 m/s. The round-1 outlet-column blow-up (Ma 1.34, NaN at 139 s) no longer occurs.' },
       { name: 'stability (primary, res 20)', status: 'pass',
-        detail: 'no NaN; tau = 0.7; max Mach 0.239 (initial transient; 0.233 steady) < 0.3; steady to 1.8e-6 relative over the last 10 s of 60 s. Also stable at res 30 (T 35 s), res 40 (T 25 s), res 20 ibb (T 60 s). ' +
-          'Exploratory runs outside the check (same method, scratch script): res 20 stays steady to t = 150 s at Ulat 0.1 and to t = 100 s at Ulat 0.05 (tau 0.6); res 15 stays steady to t = 120 s.' },
+        detail: 'no NaN; tau = 0.7; max Mach 0.239 (initial transient; 0.233 steady) < 0.3; steady to 1.8e-6 relative over the last 10 s of 60 s. Also steady at res 20 ibb (60 s) and res 20 Ulat 0.05 (100 s, 1.6e-10).' },
       { name: 'mass conservation (open channel, primary)', status: 'pass',
-        detail: 'total mass is not an invariant (open inflow/outflow). Steady-state checks: |M(60) - M(50)|/M0 = 6.4e-7 (< 1e-6); mass-flux balance |Q_out - Q_in|/Q_in = 1.6e-4 (< 1%); ' +
+        detail: 'total mass is not an invariant (open inflow/outflow). Steady-state checks: |M(60) - M(50)|/M0 = 6.4e-7 (< 1e-6); mass-flux balance |Q_out - Q_in|/Q_in = 5.1e-5 (< 1%); ' +
           'Q_in = 0.081994 m^2/s vs Ubar H = 0.082 (-7e-5). Momentum/energy are not invariants of this forced, dissipative, open problem.' },
       { name: 'quantitative vs Schafer-Turek / Nabh (primary, res 20)', status: 'pass',
         detail: 'cD +2.11%, dp +1.64% (tol 3% rel), cL +0.00096 (tol 0.003 abs). In-interval (information): none of cD, cL, dp in the 1996 intervals at res 20.' },
-      { name: 'grid trend (information)', status: 'n/a',
-        detail: 'staircase, Ulat 0.1: cD +5.85% (res 10, t 25 s plateau) -> +2.11% (20) -> +1.69% (30, t 35 s) -> +0.83% (40, t 25 s, still falling ~0.18%/10 s); ' +
-          'dp -2.1% -> +1.64% -> 0.00% -> -0.21%; cL 0.0156 -> 0.01158 -> 0.01147 -> 0.01147 (stays ~+0.00085 above the reference). Roughly first-order, non-monotone between grids ' +
-          '(staircase geometry and tau = 0.5 + 0.15 res change together). Interpolated bounce-back at res 20: cD +0.78%, cL -0.00025, dp +1.28%.' },
+      { name: 'grid / Mach trend (information, non-default parameters)', status: 'n/a',
+        detail: 'staircase, Ulat 0.1: cD +5.82% (res 10) -> +2.11% (20) -> +1.69% (30, 35 s, drifting 2e-4/10 s) -> +0.83% (40, 25 s, drifting 1.8e-3/10 s); ' +
+          'dp -2.16% -> +1.64% -> 0.00% -> -0.21%; cL 0.01564 -> 0.01158 -> 0.01147 -> 0.01147. res 10 is outside the 3% band for cD (+5.8..+6.7%), cL (+0.0038..+0.0054 > 0.003) and, at low Ulat, dp (-7.6% at 0.05, -14.2% at 0.02). ' +
+          'res 20 Ulat 0.05 (tau 0.6): cD +2.61%, cL +0.00109, dp +3.72% (just outside 3%). Interpolated bounce-back at res 20: cD +0.78%, cL -0.00025, dp +1.28%. ' +
+          'These are discretisation/tau-dependent staircase errors at non-default settings, not part of the published protocol; reported, not used for classification.' },
       { name: 'interpolated bounce-back mass balance (information)', status: 'n/a',
-        detail: 'ibb = 1 (non-default) at res 20 is steady (|dM|/M0 = 3.9e-7 over 10 s) but Q_out is 1.10% below Q_in: the linear Bouzidi rule is not mass conserving and removes ~1% of the throughput at the cylinder. Not used for classification.' }
+        detail: 'ibb = 1 (non-default) at res 20 is steady but Q_out is 0.62% below Q_in (linear Bouzidi rule is not mass conserving). Not used for classification.' }
     ],
     missing: [
-      'schafer1996 (intervals) is verified:false and paywalled: values come from three mutually identical MIT-licensed GitHub copies (copy-vortexlab-dfg, copy-adelowo-dfg, copy-karman-dfg, verified:true copies, all 2026 repos) plus DD2365_FEniCSx; Table 3 not checked against the original.',
+      'schafer1996 (intervals) is verified:false and paywalled: values come from three mutually identical MIT-licensed GitHub copies (copy-vortexlab-dfg, copy-adelowo-dfg, copy-karman-dfg, verified:true copies) plus DD2365_FEniCSx; Table 3 not checked against the original.',
       'nabh1998 (refined value cD 5.57953523384, cL 0.010618948146, dp 0.11752016697) is verified:false; quoted from the FeatFlow page through the same copies (FeatFlow site not reachable). john2001 (cL cross-check) verified:false.',
-      'LBM method sources (qian1992, he1997, zou1997, ladd1994, hou1995) verified:false (abstracts/snippets). The Zou-He pressure outlet and the Bouzidi bounce-back are builder additions not taken from a read source; the outlet replaces the benchmark do-nothing outflow.',
-      'No converged run beyond res 30: res 40 stopped at t = 25 s (cD still drifting 0.18% per 10 s), res 80 not run (runtime budget). Grid convergence order therefore not established.',
-      'Mach sensitivity not part of the check script; an exploratory run (res 20, Ulat 0.05, tau 0.6) gave cD = 5.7253 (+2.61%) vs 5.6974 at Ulat 0.1, i.e. the staircase/tau-dependent wall error dominates over Ma^2.',
+      'LBM method sources (qian1992, he1997, zou1997, ladd1994, hou1995) verified:false. The Zou-He pressure outlet (including the round-1 corner-node closure) and the Bouzidi bounce-back are builder additions not taken from a read source; the reviewer checked algebraically that the corner closure enforces rho = 1 and rho u_y = 0. The outlet replaces the benchmark do-nothing outflow.',
+      'No converged run beyond res 30 (res 30 itself drifts 2e-4/10 s at 35 s): res 40 stopped at t = 25 s, res 80 not run (runtime budget). Grid convergence order not established.',
+      'Ulat above ~0.12 (allowed up to 0.2) was not run: it violates the method\'s stated Mach < 0.3 criterion, so it is outside the stability claim.',
       'Recirculation length La (cylinder-2d1-la) is not in the probe contract and was not measured.',
       'Steadiness (1e-5 per 10 s), mass-stationarity (1e-6) and flux-balance (1%) bounds are reviewer-set; no source specifies them.'
     ],
-    reviewer: 'reviewer-lbm-d2q9-cyl-2d1-r1', round: 1, date: '2026-10-13',
-    history: [ { round: 1, status: 'flagged',
-      reason: 'Default protocol (res 20, Ulat 0.1) passes all three suggested tolerances (cD +2.11%, cL +0.00096, dp +1.64%; none inside the 1996 intervals), steady, mass-flux balanced, Ma 0.24. ' +
-        'Flagged: at res 10 (in the method range; tau 0.6/0.55, Ma 0.24/0.12 satisfy its stated criterion) the solution leaves the steady state at t ~ 40-50 s via an instability that starts at the Zou-He outlet column (outlet wall-row u 0.19 m/s at onset) and blows up (Ma 1.34 at 150 s; NaN at 139 s).' } ]
+    reviewer: 'reviewer-lbm-d2q9-cyl-2d1-r2', round: 2, date: '2026-10-13',
+    history: [
+      { round: 1, status: 'flagged',
+        reason: 'Default protocol (res 20, Ulat 0.1) passes all three suggested tolerances (cD +2.11%, cL +0.00096, dp +1.64%; none inside the 1996 intervals), steady, mass-flux balanced, Ma 0.24. ' +
+          'Flagged: at res 10 (in the method range; tau 0.6/0.55, Ma 0.24/0.12 satisfy its stated criterion) the solution leaves the steady state at t ~ 40-50 s via an instability that starts at the Zou-He outlet column (outlet wall-row u 0.19 m/s at onset) and blows up (Ma 1.34 at 150 s; NaN at 139 s).' },
+      { round: 2, status: 'matched',
+        reason: 'After the outlet-corner fix, re-run from scratch: defaults unchanged (cD +2.11%, cL +0.00096, dp +1.64%, all within tolerance; steady; flux balance 5e-5). ' +
+          'All 8 runs in the allowed range (res 10-40, Ulat 0.02-0.1, ibb 0/1) stable; res 10 at Ulat 0.1/0.05/0.02 steady to 150 s. Coarse/low-Ulat non-default runs miss the 3% band (information only).' }
+    ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
 <script>/* verification/results/lbm-d2q9@cyl-2d2.js */
-/* Verification record: lbm-d2q9 @ cyl-2d2. Reviewer: reviewer-lbm-d2q9-cyl-2d2-r1 (not the builder).
- * Numbers from verification/checks/lbm-d2q9@cyl-2d2.check.js; report in
- * verification/reports/lbm-d2q9@cyl-2d2.md. */
+/* Verification record: lbm-d2q9 @ cyl-2d2. Reviewer: reviewer-lbm-d2q9-cyl-2d2-r2 (not the builder).
+ * Numbers from verification/checks/lbm-d2q9@cyl-2d2.check.js (re-run in round 2 after refinement round 1);
+ * report in verification/reports/lbm-d2q9@cyl-2d2.md. */
 (function (LAB) {
   'use strict';
   LAB.registerVerification({
@@ -7924,110 +7935,114 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     method: 'lbm-d2q9', scene: 'cylinder', experiment: 'cyl-2d2',
     status: 'flagged',
     claim: 'D2Q9 BGK reproduces the DFG 2D-2 (Re = 100) shedding benchmark: St, max C_D, max C_L within the reference tolerances. ' +
-      'Result: NOT reproduced at the method defaults. At res = 20 cells/D (Ulat 0.1, tau 0.54) the run diverges at t = 8.15 s (staircase) / 6.8 s (interpolated bounce-back), ' +
-      'and at Ulat 0.05 (tau 0.52) at t = 5.8 s; the instability starts at the Zou-He pressure outlet column (mass grows monotonically from t ~ 5 s). ' +
-      'At res = 30 staircase is stable but max C_D = 3.372 (+4.5%, tol 3%) and max C_L = 1.049 (+6.3%, tol 5%) fail; St = 0.2976 (-1.4%) passes. ' +
-      'res = 30 with interpolated bounce-back gives St 0.3005, max C_D 3.286 (+1.8%), max C_L 0.9856 (-0.1%), all within tolerance, but its domain mass is not stationary (same outlet drift).',
+      'Result (round 2): the outlet instability is fixed. All five runs (res 20/30, staircase/interpolated, Ulat 0.1/0.05) stay stable to 10 s with stationary domain mass (|dM| < 1e-5 M0 over the window). ' +
+      'At the method defaults (res 20, staircase, tau 0.54) St = 0.2966 (-1.7%) passes, but max C_D = 3.439 (+6.6%, tol 3%) and max C_L = 1.080 (+9.4%, tol 5%) fail. ' +
+      'res 30 staircase: C_D +4.5%, C_L +6.3% (fail). Interpolated bounce-back (ibb = 1) passes all three at res 20 (St -0.65%, C_D +2.95%, C_L -1.4%) and res 30 (St -0.40%, C_D +1.8%, C_L -0.11%). ' +
+      'The remaining failure is the first-order staircase cylinder used by default, not an implementation defect.',
     conditions: {
-      Re: 100, Um: 1.5, Ubar: 1.0, nu: 1e-3, T_end: 10, window: 't in [6, 10] s (~12 periods)',
-      runs: 'A res20 Ulat0.1 ibb0 (method defaults, tau 0.54): diverged t=8.15 s; B res20 Ulat0.1 ibb1: diverged t=6.8 s; ' +
-        'C res30 Ulat0.1 ibb0 (tau 0.56, 660x123, 45000 steps): stable; D res30 Ulat0.1 ibb1: stable to 10 s, mass drifting; E res20 Ulat0.05 ibb0 (tau 0.52): diverged t=5.8 s',
-      Mach_max_window: 0.260, Mach_startup_peak: 0.3004,
-      not_run: 'res 40 to 10 s (~11 min single-core at ~13 MLUPS) and longer horizons (to see whether D also diverges) exceed the review budget',
+      Re: 100, Um: 1.5, Ubar: 1.0, nu: 1e-3, T_end: 10, window: 't in [6, 10] s (~12 periods, 11 full periods analysed)',
+      runs: 'A res20 Ulat0.1 ibb0 (method defaults, tau 0.54, 440x82, 30000 steps); B res20 Ulat0.1 ibb1; C res30 Ulat0.1 ibb0 (tau 0.56, 660x123, 45000 steps); ' +
+        'D res30 Ulat0.1 ibb1; E res20 Ulat0.05 ibb0 (tau 0.52). All stable to t = 10 s.',
+      Mach_max_window: 0.261, Mach_startup_peak: 0.3056,
+      not_run: 'res 40 (~11 min single-core) exceeds the review budget; 7.0 min wall for the five runs on 4 cores',
       check: 'verification/checks/lbm-d2q9@cyl-2d2.check.js'
     },
     reference: ['cylinder-2d2-st', 'cylinder-2d2-cdmax', 'cylinder-2d2-clmax', 'cylinder-2d2-dp'],
     gaps: [
-      { quantity: 'St, res 20 (method default), any variant', value: null, tolerance: 0.03, unit: 'rel', pass: false },
-      { quantity: 'St, res 30 staircase (sim 0.29756 vs 0.30184)', value: 0.0142, tolerance: 0.03, unit: 'rel', pass: true },
-      { quantity: 'max C_D, res 30 staircase (sim 3.3724 vs 3.227393)', value: 0.0449, tolerance: 0.03, unit: 'rel', pass: false },
-      { quantity: 'max C_L, res 30 staircase (sim 1.0489 vs 0.986571)', value: 0.0632, tolerance: 0.05, unit: 'rel', pass: false },
-      { quantity: 'St, res 30 interpolated BB (sim 0.30052)', value: 0.0044, tolerance: 0.03, unit: 'rel', pass: true },
-      { quantity: 'max C_D, res 30 interpolated BB (sim 3.2856)', value: 0.0181, tolerance: 0.03, unit: 'rel', pass: true },
-      { quantity: 'max C_L, res 30 interpolated BB (sim 0.98564)', value: 0.0009, tolerance: 0.05, unit: 'rel', pass: true }
+      { quantity: 'St, res 20 staircase = method defaults (sim 0.29661 vs 0.30184)', value: 0.0173, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max C_D, res 20 staircase = method defaults (sim 3.4389 vs 3.227393)', value: 0.0655, tolerance: 0.03, unit: 'rel', pass: false },
+      { quantity: 'max C_L, res 20 staircase = method defaults (sim 1.0798 vs 0.986571)', value: 0.0945, tolerance: 0.05, unit: 'rel', pass: false },
+      { quantity: 'St, res 30 staircase (sim 0.29757)', value: 0.0141, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max C_D, res 30 staircase (sim 3.3724)', value: 0.0449, tolerance: 0.03, unit: 'rel', pass: false },
+      { quantity: 'max C_L, res 30 staircase (sim 1.0489)', value: 0.0632, tolerance: 0.05, unit: 'rel', pass: false },
+      { quantity: 'St, res 20 interpolated BB (sim 0.29986)', value: 0.0065, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max C_D, res 20 interpolated BB (sim 3.3226)', value: 0.0295, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max C_L, res 20 interpolated BB (sim 0.97267)', value: 0.0141, tolerance: 0.05, unit: 'rel', pass: true },
+      { quantity: 'St, res 30 interpolated BB (sim 0.30063)', value: 0.0040, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max C_D, res 30 interpolated BB (sim 3.2859)', value: 0.0181, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'max C_L, res 30 interpolated BB (sim 0.98550)', value: 0.0011, tolerance: 0.05, unit: 'rel', pass: true }
     ],
     checks: [
-      { name: 'stability', status: 'fail',
-        detail: 'Method defaults (res 20, Ulat 0.1, tau 0.54, inside the stated tau >~ 0.51-0.55 band, notes say "prefer res >= 20") diverge to NaN at t = 8.15 s (staircase) and 6.8 s (ibb); ' +
-          'res 20 Ulat 0.05 (tau 0.52, Ma halved) diverges at 5.8 s. Diagnostic (res 20 ibb 0): location of max |u| moves from the cylinder shoulder to the last column x = 2.198 m at t = 5.25 s; ' +
-          'Mach there 0.27 -> 0.70 (t 5.25 -> 8.0 s) while (M-M0)/M0 grows monotonically 3.6e-3 -> 0.12, i.e. the Zou-He rho = 1 outlet injects mass and seeds the blow-up. ' +
-          'res 30 runs: no NaN; window Mach 0.260 / 0.259 < 0.3; start-up pressure-wave peak 0.3004 at t = 0.05 s (impulsive start, reported only).' },
-      { name: 'mass conservation (open domain: stationarity + flux balance)', status: 'fail',
-        detail: 'Reviewer bound: domain mass change over the window (mean of last 2 periods - first 2 periods)/M0 < 1e-4. res 30 staircase: 7.5e-5 (pass); res 30 ibb: 7.5e-4 (fail; dmass 1.16e-3 -> 2.28e-3 within the window, rising like the precursor of the res 20 blow-up). ' +
-          'Period-averaged volume flux Q_out - Q_in: +0.99% (C), +1.06% (D) vs 1% reviewer bound. Inflow volume flux 0.4061 vs Ubar H = 0.41 (-0.95%, both; moving-wall BB fixes rho0 u, not u, with rho > 1 at the inlet). ' +
-          'Momentum and energy are not invariants of this forced, open, viscous problem.' },
+      { name: 'stability', status: 'pass',
+        detail: 'All five runs reach t = 10 s with no NaN (round 1: A diverged at 8.15 s, B at 6.8 s, E at 5.8 s). tau 0.52-0.56 > 1/2. Window max Mach 0.261 (A), 0.259 (B), 0.260 (C), 0.259 (D), 0.131 (E) < 0.3. ' +
+          'Impulsive-start pressure-wave peak at t = 0.05 s: 0.3056 (A), 0.3022 (B), 0.3004 (C), 0.3001 (D), 0.144 (E); reported only, as in round 1.' },
+      { name: 'mass conservation (open domain: stationarity + flux balance)', status: 'pass',
+        detail: 'Reviewer bound |mean M(last 2 periods) - mean M(first 2 periods)|/M0 < 1e-4: A -2.5e-6, B -1.5e-6, C -6.7e-6, D -9.1e-6, E -5.7e-6 (all pass; round 1 D failed with 7.5e-4, res 20 runs grew to 0.12 before NaN). ' +
+          '(M - M0)/M0 stays in [1.1e-3, 1.9e-3] in the window (initial pressure field fill-up). Period-averaged VOLUME flux Q_out - Q_in (1% reviewer bound): A +0.92%, C +0.96%, D +0.94%, E +0.17% pass; B -1.37% fails. ' +
+          'Inflow Q_in vs Ubar H = 0.41: -1.01% (A, marginal fail of the 1% bound), -0.93 to -0.99% (B-D), -0.26% (E). Volume flux is not conserved in weakly compressible LBM (inlet rho > 1, outlet rho = 1; the +0.9% at Ulat 0.1 shrinks to +0.17% at Ulat 0.05, as compressibility predicts), ' +
+          'and the 0.05 s sampling of a strongly fluctuating outlet column is coarse; the mass-stationarity result is the conservation verdict. Momentum and energy are not invariants of this forced, open, viscous problem.' },
       { name: 'periodic state reached', status: 'pass',
-        detail: 'res 30 runs: period spread 0.08% / 0.13%, per-period max C_L spread 0.31% / 0.23%, max C_D spread 0.33% / 0.22%; first vs second half of window differ by < 0.03% in St and < 0.3% in maxima.' },
+        detail: 'Period spread 0.10% (A), 0.04% (B), 0.07% (C), 0.04% (D), 0.18% (E). Per-period max C_L spread 1.04% (A, just over the 1% reviewer criterion; the window maximum is 1.080 vs per-period minimum 1.069, both far outside tolerance), 0.29% (B), 0.31% (C), 0.21% (D), 0.83% (E). ' +
+          'First vs second half of window: St within 0.03%, maxima within 0.25%.' },
       { name: 'quantitative vs DFG 2D-2', status: 'fail',
-        detail: 'Default protocol (res 20) yields no window (diverged). res 30 staircase: St pass (-1.4%), max C_D +4.5% (tol 3%) fail, max C_L +6.3% (tol 5%) fail. ' +
-          'res 30 ibb: all three pass (St -0.44%, C_D +1.8%, C_L -0.09%); in-range vs the 1996 intervals: St yes, C_D no (3.286 > 3.24), C_L no (0.986 < 0.99, as is the refined reference). ' +
-          'High-frequency (acoustic) content is negligible: rms(signal - P/100 moving average) 3.7e-5 (C_D), 1.2e-4 (C_L); smoothed maxima differ from raw by < 2e-4.' },
+        detail: 'Method defaults (res 20 staircase): St -1.7% pass, max C_D +6.6% fail (tol 3%), max C_L +9.4% fail (tol 5%). res 20 Ulat 0.05 (E): C_D +6.5%, C_L +7.4% fail, so not a Mach effect. ' +
+          'res 30 staircase: C_D +4.5%, C_L +6.3% fail. ibb = 1 passes all three at res 20 and res 30. Staircase error decreases with resolution (C_D +6.6% -> +4.5% for res 20 -> 30) and vanishes with the interpolated wall: a first-order geometry error of the default boundary, not a defect. ' +
+          'In-range vs the 1996 intervals: St yes (all); C_D no (all > 3.24); C_L no. Acoustic content negligible: rms(signal - P/100 moving average) <= 1.8e-4; smoothed maxima within 8e-4 of raw.' },
       { name: 'pressure difference dp at t0 + 1/(2f) (information)', status: 'n/a',
-        detail: 'res 30 staircase 2.4939 (+0.37%), ibb 2.4986 (+0.56%) vs 2.4848, tol 4%; both inside [2.46, 2.50]. Not part of the experiment quantity; t0 = a cL maximum just after the window.' },
+        detail: 'A 2.687 (+8.1%), B 2.608 (+5.0%), C 2.494 (+0.38%), D 2.503 (+0.72%), E 2.757 (+11.0%) vs 2.4848, tol 4%. Not part of the experiment quantity.' },
       { name: 'raw zero crossings vs mean-removed (information)', status: 'n/a',
-        detail: 'mean C_L = -0.018 / -0.020; St from raw C_L zero crossings equals the mean-removed value to 2e-7.' }
+        detail: 'mean C_L -0.016 to -0.025; St from raw C_L zero crossings equals the mean-removed value to 4e-6.' }
     ],
     missing: [
       'schafer1996 is registered verified:false (Springer, paywalled; original not read). The 1996 intervals come from three MIT-licensed copies that agree exactly (copy-vortexlab-dfg, copy-adelowo-dfg, copy-karman-dfg, all verified:true); Table 4 numbering unverified.',
       'featflow-dfg (source of the refined values used as gap targets: St 0.30184, cD,max 3.227393, cL,max 0.986571, dp 2.4848) is verified:false: site unreachable, values extracted by third parties from the official time-series file.',
-      'LBM method sources (qian1992, he1997, zou1997, ladd1994, hou1995) not read in full by the researcher; the Zou-He outlet formula is a builder derivation. Bouzidi interpolated bounce-back (ibb) is not among the registered sources.',
-      'The benchmark prescribes a do-nothing outflow; the method substitutes a fixed-density Zou-He outlet (stated in its assumptions). That substitution is where the observed instability nucleates.',
-      'res 40 and longer horizons (does the res 30 ibb mass drift end in divergence?) not run: over the ~10 min budget (480 s wall for the five runs on a shared 4-core machine).',
-      'Mass-stationarity (1e-4), flux-balance (1%) and window-Mach criteria are reviewer-set; no source specifies them.'
+      'LBM method sources (qian1992, he1997, zou1997, ladd1994, hou1995) not read in full; the Zou-He outlet formulas, including the round-1 corner-node closure, are builder derivations (reviewer re-derived: the corner formulas impose rho = rhoOut and rho u_y = 0 exactly). Bouzidi interpolated bounce-back (ibb) is not among the registered sources.',
+      'The benchmark prescribes a do-nothing outflow; the method substitutes a fixed-density Zou-He outlet (stated in its assumptions).',
+      'res 40 and horizons beyond 10 s not run (budget). Mass is stationary to < 1e-5 over the window, so no drift toward divergence is visible.',
+      'Mass-stationarity (1e-4), flux-balance (1%), periodicity (1%) and window-Mach criteria are reviewer-set; no source specifies them.'
     ],
-    reviewer: 'reviewer-lbm-d2q9-cyl-2d2-r1', round: 1, date: '2026-10-13',
-    history: [ { round: 1, status: 'flagged',
-      reason: 'Method defaults (res 20, tau 0.54) diverge at t = 8.15 s (6.8 s ibb; 5.8 s at Ulat 0.05) from the Zou-He pressure outlet (monotonic mass growth, max |u| at last column). ' +
-        'res 30 staircase stable but max C_D +4.5% (tol 3%), max C_L +6.3% (tol 5%); St -1.4% passes. res 30 ibb passes all three gaps but its mass drifts (7.5e-4 per 4 s window).' } ]
+    reviewer: 'reviewer-lbm-d2q9-cyl-2d2-r2', round: 2, date: '2026-10-13',
+    history: [
+      { round: 1, status: 'flagged',
+        reason: 'Method defaults (res 20, tau 0.54) diverge at t = 8.15 s (6.8 s ibb; 5.8 s at Ulat 0.05) from the Zou-He pressure outlet (monotonic mass growth, max |u| at last column). ' +
+          'res 30 staircase stable but max C_D +4.5% (tol 3%), max C_L +6.3% (tol 5%); St -1.4% passes. res 30 ibb passes all three gaps but its mass drifts (7.5e-4 per 4 s window).' },
+      { round: 2, status: 'flagged',
+        reason: 'Outlet corner fix works: all runs stable to 10 s, mass stationary (< 1e-5). Defaults (res 20 staircase) give St -1.7% (pass) but max C_D +6.6% (tol 3%) and max C_L +9.4% (tol 5%); res 30 staircase C_D +4.5%, C_L +6.3%. ' +
+          'Interpolated bounce-back (ibb = 1) passes all three at res 20 and 30. Remaining gap is the first-order staircase default, not an implementation defect.' }
+    ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
 <script>/* verification/results/lbm-d2q9@tg-re100.js */
-/* Verification record: lbm-d2q9 @ tg-re100. Reviewer: reviewer-lbm-d2q9-tg-re100-r1 (not the builder).
+/* Verification record: lbm-d2q9 @ tg-re100. Reviewer: reviewer-lbm-d2q9-tg-re100-r2 (not the builder).
  * Numbers from verification/checks/lbm-d2q9@tg-re100.check.js; report in verification/reports/lbm-d2q9@tg-re100.md. */
 (function (LAB) {
   'use strict';
   LAB.registerVerification({
     id: 'lbm-d2q9@tg-re100',
     method: 'lbm-d2q9', scene: 'taylor-green', experiment: 'tg-re100',
-    status: 'flagged',
-    claim: 'D2Q9 BGK at the method defaults (N = 128, Ulat = 0.05, tau = 0.5306) reproduces the analytic Taylor-Green decay at Re = 100 ' +
-      'well inside the reference tolerances: KE gap vs 0.25 exp(-4 nu t) is 0.14% at t = 5 (max 0.32% over every step in [0, 5], tol 1%) and ' +
-      '0.009% at t = 50; relative L2 velocity error <= 0.0013 on [0, 5] (tol 0.02); second-order convergence under diffusive scaling ' +
-      '(p = 1.99-2.13 for KE gap and L2). Mass and momentum are conserved to round-off and all runs are stable. FLAGGED because the energy ' +
-      'check fails: the initial state injects a spurious period-2 start-up transient, so KE increases on alternate steps for the first 26 steps ' +
-      '(65 at N = 64), by up to 0.28% (1.2% at N = 64) per step, and at N = 64 the KE gap briefly reaches 1.28% (> 1% tol) at t = 0.005. ' +
-      'Cause identified: createTG writes the pre-collision non-equilibrium part (-tau w rho 3 Q:grad u) into the post-collision buffer; ' +
-      'the post-collision value is -(tau - 1) w rho 3 Q:grad u. With that one-line change (reviewer in-memory diagnostic) KE decays monotonically ' +
-      'and the t = 5 KE gap falls to 0.034% at both N = 64 and 128.',
+    status: 'matched',
+    claim: 'D2Q9 BGK at the method defaults (N = 128, Ulat = 0.05, tau = 0.5306) reproduces the analytic Taylor-Green decay at Re = 100: ' +
+      'KE gap vs 0.25 exp(-4 nu t) is 0.034% at t = 5 (max 0.034% over every step in [0, 5], tol 1%) and 0.16% at t = 50; ' +
+      'relative L2 velocity error <= 0.0010 on [0, 5] (tol 0.02); KE decays monotonically in every run (0 step-to-step increases); ' +
+      'second-order convergence under diffusive scaling (p = 1.99-2.24 for KE gap and L2). Mass and momentum conserved to round-off; all runs stable. ' +
+      'The round-1 start-up transient is gone after the refinement changed the initial non-equilibrium factor from -tau to -(tau - 1).',
     conditions: {
       Re: 100, nu: 0.01, k: 1, U0: 1, box: '[0, 2 pi]^2 periodic', N: 128, Ulat: 0.05, tau: 0.5306, Mach_max: 0.087,
       steps: '2038 (t = 5), 20372 (t = 50)', t_end: '5 (experiment horizon) and 50 (= 1/(2 nu k^2), tolerance check point named by tgv-kinetic-energy)',
       refinement: 'acoustic scaling Ulat = 0.05, N = 64/128/256 (tau 0.515/0.531/0.561); diffusive scaling tau = 0.5306, N = 64/128/256 with Ulat = 0.1/0.05/0.025; t = 50 also at N = 256',
-      metric: 'KE gap |KE(t)/E_ref(t) - 1| sampled every 0.5 and after every step; L2 = probe l2_error, cross-checked by reviewer recomputation from view(ux/uy) vs tgv-velocity fn (max diff 2.2e-9)',
+      metric: 'KE gap |KE(t)/E_ref(t) - 1| sampled every 0.5 and after every step; L2 = probe l2_error, cross-checked by reviewer recomputation from view(ux/uy) vs tgv-velocity fn (max diff 1.8e-9)',
       check: 'verification/checks/lbm-d2q9@tg-re100.check.js (about 3.6 min)'
     },
     reference: ['tgv-kinetic-energy', 'tgv-velocity'],
     gaps: [
-      { quantity: 'KE gap vs tgv-kinetic-energy, max over every step t in [0, 5], N = 128 (default)', value: 0.00321, tolerance: 0.01, unit: 'relative', pass: true },
-      { quantity: 'KE gap vs tgv-kinetic-energy at t = 5, N = 128 (default)', value: 0.00136, tolerance: 0.01, unit: 'relative', pass: true },
-      { quantity: 'KE gap vs tgv-kinetic-energy at t = 50 = 1/(2 nu k^2), N = 128', value: 0.000089, tolerance: 0.01, unit: 'relative', pass: true },
-      { quantity: 'relative L2 velocity error vs tgv-velocity, max over samples t in [0, 5], N = 128 (default)', value: 0.00127, tolerance: 0.02, unit: 'rel-l2', pass: true },
-      { quantity: 'relative L2 velocity error vs tgv-velocity at t = 50, N = 128', value: 0.00035, tolerance: 0.02, unit: 'rel-l2', pass: true },
-      { quantity: 'KE gap vs tgv-kinetic-energy, max over every step t in [0, 5], N = 64 (Ulat 0.05; start-up transient at t = 0.005)', value: 0.01281, tolerance: 0.01, unit: 'relative', pass: false }
+      { quantity: 'KE gap vs tgv-kinetic-energy, max over every step t in [0, 5], N = 128 (default)', value: 0.000342, tolerance: 0.01, unit: 'relative', pass: true },
+      { quantity: 'KE gap vs tgv-kinetic-energy at t = 5, N = 128 (default)', value: 0.000339, tolerance: 0.01, unit: 'relative', pass: true },
+      { quantity: 'KE gap vs tgv-kinetic-energy at t = 50 = 1/(2 nu k^2), N = 128', value: 0.00162, tolerance: 0.01, unit: 'relative', pass: true },
+      { quantity: 'relative L2 velocity error vs tgv-velocity, max over samples t in [0, 5], N = 128 (default)', value: 0.00103, tolerance: 0.02, unit: 'rel-l2', pass: true },
+      { quantity: 'relative L2 velocity error vs tgv-velocity at t = 50, N = 128', value: 0.00088, tolerance: 0.02, unit: 'rel-l2', pass: true },
+      { quantity: 'KE gap vs tgv-kinetic-energy, max over every step t in [0, 5], N = 64 (Ulat 0.05, tau 0.515)', value: 0.000341, tolerance: 0.01, unit: 'relative', pass: true }
     ],
     checks: [
       { name: 'mass conservation', status: 'pass', detail: 'sum(rho) max relative drift 2.0e-12 over 40744 steps (all runs below 10 eps per step)' },
-      { name: 'momentum conservation', status: 'pass', detail: '|sum rho u| / (N^2 Ulat) <= 9.8e-16 in all runs (initial total momentum 0)' },
-      { name: 'energy (KE never increases; viscous decay)', status: 'fail', detail: 'KE rises on alternate steps during a period-2 start-up transient in every run: 13 increases (last at step 26), max +0.28%/step at N = 128; ' +
-          '31 increases (last at step 65), max +1.2%/step at N = 64. In-memory diagnostic with the post-collision-consistent initial non-equilibrium (-(tau-1) instead of -tau): 0 increases at N = 64 and 128.' },
+      { name: 'momentum conservation', status: 'pass', detail: '|sum rho u| / (N^2 Ulat) <= 1.5e-15 in all runs (initial total momentum 0)' },
+      { name: 'energy (KE never increases; viscous decay)', status: 'pass', detail: '0 step-to-step KE increases in all 7 runs (N = 64/128/256, both scalings, t = 5 and t = 50). Round-1 period-2 transient removed.' },
       { name: 'stability (NaN / blow-up, tau, Mach)', status: 'pass', detail: 'no NaN or diverged() in any run incl. t = 50; tau min 0.5153 (>= 0.51 practical BGK bound); max Mach |u|/c_s 0.087 (0.173 in the Ulat = 0.1 run; < 0.3 criterion)' },
-      { name: 'quantitative (KE decay, L2 velocity) at default N = 128', status: 'pass', detail: 'KE gap 0.14% at t = 5, 0.32% max over every step, 0.009% at t = 50 (tol 1%); L2 <= 0.0013 (tol 0.02). Effective nu from KE(5): 0.010068 (exact 0.01), 0.0100004 at t = 50.' },
-      { name: 'order under refinement', status: 'pass', detail: 'diffusive scaling (tau fixed, Ulat ~ 1/N): KE gap 5.4e-3 / 1.36e-3 / 3.4e-4, p = 1.99, 2.00; L2 4.1e-3 / 9.5e-4 / 2.2e-4, p = 2.13, 2.08. ' +
-          'Acoustic scaling (Ulat fixed): L2 3.2e-3 / 9.5e-4 / 6.7e-4 (p = 1.75, 0.50, saturating at the O(Ma^2) compressibility floor), as expected for LBM.' },
-      { name: 'diagnostic: initial non-equilibrium populations', status: 'fail', detail: 'as published: KE gap at t = 5 6.3e-3 (N = 64) / 1.36e-3 (N = 128); patched -(tau-1): 3.4e-4 / 3.4e-4, KE monotone; no non-eq part: 2.9e-3 / 4.6e-4. ' +
-          'The published initialisation is worse than omitting the non-equilibrium term.' }
+      { name: 'quantitative (KE decay, L2 velocity) at default N = 128', status: 'pass', detail: 'KE gap 0.034% at t = 5 and over every step, 0.16% at t = 50 (tol 1%); L2 <= 0.0010 (tol 0.02). Effective nu from KE: 0.009983 (t = 5), 0.009992 (t = 50); exact 0.01.' },
+      { name: 'order under refinement', status: 'pass', detail: 'diffusive scaling (tau fixed, Ulat ~ 1/N): KE gap 1.42e-3 / 3.39e-4 / 8.5e-5, p = 2.07, 1.99; L2 3.2e-3 / 6.8e-4 / 1.5e-4, p = 2.24, 2.16. ' +
+          'Acoustic scaling (Ulat fixed): KE gap 3.40e-4 / 3.39e-4 / 3.39e-4, L2 6.0e-4 / 6.8e-4 / 6.9e-4, flat at the O(Ma^2) compressibility floor, as expected for LBM at fixed Ulat.' },
+      { name: 'diagnostic: initial non-equilibrium populations', status: 'pass', detail: 'as published (-(tau-1)): KE gap at t = 5 3.4e-4 at N = 64 and 128, 0 KE increases. In-memory reversion to round-1 -tau: 6.3e-3 / 1.36e-3, 31 / 13 KE increases, N = 64 per-step gap 1.28%; no non-eq part: 2.9e-3 / 4.6e-4, 25 / 10 increases. The fix is confirmed.' }
     ],
     missing: [
       'Analytic reference source taylor1937 is verified:false (original not read, openAccess false; site unreachable) and lehmann2022 (arXiv:2112.08926) was seen as a search snippet only (verified:false, equation number unverified). ' +
@@ -8035,13 +8050,17 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
       'The tgv-kinetic-energy tolerance rationale names t = 1/(2 nu k^2) = 50 as the check point; the experiment is defined on [0, 5]. Both were run and gated (t = 5 primary; t = 50 secondary at N = 128 and 256).',
       'No published LBM-specific numeric TG error values were used (none obtained in research/ins.md); tolerances are those of the analytic references.',
       'D2Q9 equilibrium, weights and nu = (tau - 1/2)/3 are standard forms with unverified equation numbers (qian1992 / he1997 paywalled, research/ins.md).',
-      'The post-collision non-equilibrium initialisation fix was tested only in memory by the reviewer; the method file was not modified. Round 2 should re-run this check after the builder applies it.'
+      'At t = 50 the KE gap (0.16%) is the same at N = 128 and 256 with Ulat fixed: it is the O(Ma^2) compressibility floor, not a resolution error. Lower Ulat reduces it (diffusive scaling, t = 5).'
     ],
-    reviewer: 'reviewer-lbm-d2q9-tg-re100-r1', round: 1, date: '2026-10-13',
-    history: [ { round: 1, status: 'flagged',
-      reason: 'All reference gaps pass at default N = 128 (KE 0.32% max over every step, tol 1%; L2 0.0013, tol 0.02; 2nd order under diffusive scaling), mass/momentum to round-off, stable. ' +
-        'Energy check fails: initial non-equilibrium written with the pre-collision factor -tau into the post-collision buffer (should be -(tau-1)) causes a period-2 transient with KE increasing on alternate steps; ' +
-        'at N = 64 the KE gap reaches 1.28% (> 1%). Reviewer in-memory fix removes it (KE monotone, t = 5 gap 0.034%).' } ]
+    reviewer: 'reviewer-lbm-d2q9-tg-re100-r2', round: 2, date: '2026-10-13',
+    history: [
+      { round: 1, status: 'flagged',
+        reason: 'All reference gaps pass at default N = 128 (KE 0.32% max over every step, tol 1%; L2 0.0013, tol 0.02; 2nd order under diffusive scaling), mass/momentum to round-off, stable. ' +
+          'Energy check fails: initial non-equilibrium written with the pre-collision factor -tau into the post-collision buffer (should be -(tau-1)) causes a period-2 transient with KE increasing on alternate steps; ' +
+          'at N = 64 the KE gap reaches 1.28% (> 1%). Reviewer in-memory fix removes it (KE monotone, t = 5 gap 0.034%).' },
+      { round: 2, status: 'matched',
+        reason: 'Refinement applied -(tau-1). Re-run from scratch: KE monotone in all 7 runs, KE gap max 0.034% on [0, 5] (0.16% at t = 50), L2 <= 0.0010, second order under diffusive scaling, mass/momentum to round-off, stable. All gaps within tolerance, no tolerances loosened.' }
+    ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
@@ -8854,6 +8873,10 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "detail": "explicit/symplectic Euler, RK4, LBM, ψ–ω FD, Stable Fluids: 6 builders, 13 reviews, 1 refinement with code change → fresh re-review of all LBM experiments."
   },
   {
+   "name": "Wave 1b · LBM re-verification",
+   "detail": "Code changed by refinement → 5 fresh reviewers re-ran every LBM experiment. TG and cylinder 2D-1 moved flagged → matched; cylinder 2D-2 remains flagged (staircase default; interpolated bounce-back option passes). No further defect found, loop closed."
+  },
+  {
    "name": "Wave 2 · Particle methods",
    "detail": "WCSPH, PBF, MLS-MPM: 3 builders, 4 reviews, 1 refinement (declined: no defect)."
   },
@@ -8971,11 +8994,25 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "detail": "N=128 Ulat=0.1 steady run (residual<1e-8): u gap 0.0051, v gap 0.0060 (tol 0.02), psi_min 1.22% (tol 3%), centre 0.0025 (tol 0.02); mass drift 1.7e-12 (round-off), Ma 0.17, tau 0.884, no NaN. Ghia original verified:false, values from open verified copies; recorded in missing."
   },
   {
+   "id": "V-lbm-d2q9@cavity-re100-r2",
+   "type": "re-review",
+   "label": "re: cavity-re100 · lbm-d2q9",
+   "status": "matched",
+   "detail": "Re-run after refinement round 1 (TG init and cylinder outlet changes; cavity code path untouched): identical numbers (u 0.0051, v 0.0060, psi_min 1.22%, centre 0.0025; mass 1.7e-12, Ma 0.17). Added N=256 (tau 1.268): u 0.0049, v 0.0074, psi_min 0.60%, centre 0.0029, all within tolerance."
+  },
+  {
    "id": "V-lbm-d2q9@cavity-re1000-r1",
    "type": "review",
    "label": "cavity-re1000 · lbm-d2q9",
    "status": "matched",
    "detail": "N=192 Ulat=0.1 (tau 0.558): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.39% Ghia / 2.10% Erturk (tol 3%), centre 0.0030 (tol 0.02); mass drift 8.9e-12, Ma 0.167, no NaN; run truncated at residual 7.4e-6 with remaining transient <= 3e-5 bounded from converged N=128. N=128 "
+  },
+  {
+   "id": "V-lbm-d2q9@cavity-re1000-r2",
+   "type": "re-review",
+   "label": "re: cavity-re1000 · lbm-d2q9",
+   "status": "matched",
+   "detail": "Re-run from scratch after refinement (TG init and cylinder outlet only; cavity path untouched, N=128/64 results bit-identical to round 1). N=192 (t=107.25, residual 2.0e-6): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.38% Ghia / 2.09% Erturk (tol 3%), centre 0.0030 (tol 0"
   },
   {
    "id": "V-lbm-d2q9@cyl-2d1-r1",
@@ -8985,6 +9022,13 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "detail": "Default protocol (res 20, Ulat 0.1) passes all three suggested tolerances (cD +2.11%, cL +0.00096, dp +1.64%; none inside the 1996 intervals), steady, mass-flux balanced, Ma 0.24. Flagged: at res 10 (in the method range; tau 0.6/0.55, Ma 0.24/0.12 satisfy its stated criterion) the solution leaves th"
   },
   {
+   "id": "V-lbm-d2q9@cyl-2d1-r2",
+   "type": "re-review",
+   "label": "re: cyl-2d1 · lbm-d2q9",
+   "status": "matched",
+   "detail": "After the outlet-corner fix, re-run from scratch: defaults unchanged (cD +2.11%, cL +0.00096, dp +1.64%, all within tolerance; steady; flux balance 5e-5). All 8 runs in the allowed range (res 10-40, Ulat 0.02-0.1, ibb 0/1) stable; res 10 at Ulat 0.1/0.05/0.02 steady to 150 s. Coarse/low-Ulat non-def"
+  },
+  {
    "id": "V-lbm-d2q9@cyl-2d2-r1",
    "type": "review",
    "label": "cyl-2d2 · lbm-d2q9",
@@ -8992,11 +9036,25 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "detail": "Method defaults (res 20, tau 0.54) diverge at t = 8.15 s (6.8 s ibb; 5.8 s at Ulat 0.05) from the Zou-He pressure outlet (monotonic mass growth, max |u| at last column). res 30 staircase stable but max C_D +4.5% (tol 3%), max C_L +6.3% (tol 5%); St -1.4% passes. res 30 ibb passes all three gaps but "
   },
   {
+   "id": "V-lbm-d2q9@cyl-2d2-r2",
+   "type": "re-review",
+   "label": "re: cyl-2d2 · lbm-d2q9",
+   "status": "flagged",
+   "detail": "Outlet corner fix works: all runs stable to 10 s, mass stationary (< 1e-5). Defaults (res 20 staircase) give St -1.7% (pass) but max C_D +6.6% (tol 3%) and max C_L +9.4% (tol 5%); res 30 staircase C_D +4.5%, C_L +6.3%. Interpolated bounce-back (ibb = 1) passes all three at res 20 and 30. Remaining g"
+  },
+  {
    "id": "V-lbm-d2q9@tg-re100-r1",
    "type": "review",
    "label": "tg-re100 · lbm-d2q9",
    "status": "flagged",
    "detail": "All reference gaps pass at default N = 128 (KE 0.32% max over every step, tol 1%; L2 0.0013, tol 0.02; 2nd order under diffusive scaling), mass/momentum to round-off, stable. Energy check fails: initial non-equilibrium written with the pre-collision factor -tau into the post-collision buffer (should"
+  },
+  {
+   "id": "V-lbm-d2q9@tg-re100-r2",
+   "type": "re-review",
+   "label": "re: tg-re100 · lbm-d2q9",
+   "status": "matched",
+   "detail": "Refinement applied -(tau-1). Re-run from scratch: KE monotone in all 7 runs, KE gap max 0.034% on [0, 5] (0.16% at t = 50), L2 <= 0.0010, second order under diffusive scaling, mass/momentum to round-off, stable. All gaps within tolerance, no tolerances loosened."
   },
   {
    "id": "F-lbm-d2q9-r1",
@@ -9203,8 +9261,16 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "V-lbm-d2q9@cavity-re100-r1"
   ],
   [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cavity-re100-r2"
+  ],
+  [
    "B-lbm-d2q9",
    "V-lbm-d2q9@cavity-re1000-r1"
+  ],
+  [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cavity-re1000-r2"
   ],
   [
    "B-lbm-d2q9",
@@ -9215,6 +9281,10 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "F-lbm-d2q9-r1"
   ],
   [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cyl-2d1-r2"
+  ],
+  [
    "B-lbm-d2q9",
    "V-lbm-d2q9@cyl-2d2-r1"
   ],
@@ -9223,12 +9293,20 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "F-lbm-d2q9-r1"
   ],
   [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@cyl-2d2-r2"
+  ],
+  [
    "B-lbm-d2q9",
    "V-lbm-d2q9@tg-re100-r1"
   ],
   [
    "V-lbm-d2q9@tg-re100-r1",
    "F-lbm-d2q9-r1"
+  ],
+  [
+   "F-lbm-d2q9-r1",
+   "V-lbm-d2q9@tg-re100-r2"
   ],
   [
    "R-ptc",
@@ -9351,7 +9429,15 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "UI"
   ],
   [
+   "V-lbm-d2q9@cavity-re100-r2",
+   "UI"
+  ],
+  [
    "V-lbm-d2q9@cavity-re1000-r1",
+   "UI"
+  ],
+  [
+   "V-lbm-d2q9@cavity-re1000-r2",
    "UI"
   ],
   [
@@ -9359,11 +9445,23 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
    "UI"
   ],
   [
+   "V-lbm-d2q9@cyl-2d1-r2",
+   "UI"
+  ],
+  [
    "V-lbm-d2q9@cyl-2d2-r1",
    "UI"
   ],
   [
+   "V-lbm-d2q9@cyl-2d2-r2",
+   "UI"
+  ],
+  [
    "V-lbm-d2q9@tg-re100-r1",
+   "UI"
+  ],
+  [
+   "V-lbm-d2q9@tg-re100-r2",
    "UI"
   ],
   [
@@ -9998,7 +10096,8 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     T.hist = (TILE[T.scene] ? TILE[T.scene].m : []).map(function () { return []; });
     var rec = exp && LAB.verification[T.method + '@' + exp.id];
     T.el.querySelector('.t-chip').innerHTML = chip(rec ? rec.status : null);
-    T.el.querySelector('.t-gap').textContent = rec && rec.gaps && rec.gaps[0] ? rec.gaps[0].quantity + ': ' + fmt(rec.gaps[0].value) + (rec.gaps[0].tolerance != null ? ' (tol ' + fmt(rec.gaps[0].tolerance) + ')' : '') : (rec ? '' : 'awaiting independent review');
+    var gp = rec && rec.gaps && rec.gaps.length ? (rec.gaps.filter(function (x) { return !x.pass; })[0] || rec.gaps[0]) : null;
+    T.el.querySelector('.t-gap').innerHTML = gp ? '<span class="' + (gp.pass ? 'pass' : 'fail') + '">' + (gp.pass ? 'within tol' : 'exceeds tol') + '</span> · ' + esc(gp.quantity) + ': ' + fmt(gp.value) + (gp.tolerance != null ? ' (tol ' + fmt(gp.tolerance) + ')' : '') : (rec ? '' : 'awaiting independent review');
   }
   function buildWall() {
     var host = $('wall'), scenes = Object.keys(LAB.scenes).filter(function (k) { return methodsFor(k).length; });
@@ -10089,7 +10188,8 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
       h += '<tr><th>' + esc(LAB.methods[mid].name) + '</th>' + exps.map(function (x) {
         if (!LAB.methods[mid].scenes[x.scene]) return '<td class="unsup"></td>';
         var r = LAB.verification[mid + '@' + x.exp.id];
-        return '<td class="cell" data-go="' + x.scene + '/' + x.exp.id + '/' + mid + '">' + chip(r ? r.status : null) + (r && r.gaps && r.gaps[0] ? '<div class="small dim" style="margin-top:3px">' + esc(r.gaps[0].quantity).slice(0, 38) + ': ' + fmt(r.gaps[0].value) + '</div>' : '') + '</td>';
+        var g0 = r && r.gaps && r.gaps.length ? (r.gaps.filter(function (x) { return !x.pass; })[0] || r.gaps[0]) : null;
+        return '<td class="cell" data-go="' + x.scene + '/' + x.exp.id + '/' + mid + '">' + chip(r ? r.status : null) + (g0 ? '<div class="small dim" style="margin-top:3px" title="' + esc(g0.quantity) + '">' + esc(g0.quantity.slice(0, 38)) + ': ' + fmt(g0.value) + '</div>' : '') + '</td>';
       }).join('') + '</tr>';
     });
     h += '</table></div>';
