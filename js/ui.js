@@ -27,7 +27,8 @@
   var CMAPS = {
     sequential: lut(['#07090b', '#13293d', '#1f5a6e', '#3f8f7f', '#c9a53a', '#f2b33d', '#fff4dc']),
     diverging: lut(['#9fd3ff', '#2f7fc1', '#132a40', '#07090b', '#4a2112', '#c8532b', '#ffc9a8']),
-    mono: lut(['#07090b', '#d5d9de'])
+    mono: lut(['#07090b', '#d5d9de']),
+    particles: lut(['#2f6f8f', '#3f9f8f', '#c9a53a', '#f2b33d', '#fff4dc'])
   };
   function cssLut(name) { var l = CMAPS[name] || CMAPS.sequential, s = []; for (var i = 0; i <= 8; i++) { var k = Math.round(i / 8 * 255) * 3; s.push('rgb(' + l[k] + ',' + l[k + 1] + ',' + l[k + 2] + ') ' + (i * 12.5) + '%'); } return 'linear-gradient(90deg,' + s.join(',') + ')'; }
 
@@ -237,7 +238,13 @@
         if (vEl) vEl.textContent = Array.isArray(last) ? '' : fmt(last);
       }
       var all = ref.series.concat(series);
-      drawPlot(g.ctx, { x: 0, y: 0, w: g.w, h: g.h }, { xlabel: p.xlabel || (p.type === 'history' ? 't' : ''), ylabel: p.ylabel, series: all, ylog: p.ylog, bands: ref.bands });
+      var xr = null;
+      if (p.type === 'history' && series.length && series[0].x.length > 1) {
+        var sx = series[0].x, xmax = sx[sx.length - 1];
+        if (xmax > 0) xr = [0, xmax * 1.08];
+        ref.series.forEach(function (rs) { var keep = rs.x.map(function (x) { return x <= (xr ? xr[1] : Infinity); }); rs.x = rs.x.filter(function (_, i) { return keep[i]; }); rs.y = rs.y.filter(function (_, i) { return keep[i]; }); });
+      }
+      drawPlot(g.ctx, { x: 0, y: 0, w: g.w, h: g.h }, { xlabel: p.xlabel || (p.type === 'history' ? 't' : ''), ylabel: p.ylabel, series: all, ylog: p.ylog, bands: ref.bands, xrange: xr });
       var key = document.querySelector('[data-key="' + p.key + '"]');
       if (key) key.innerHTML = all.map(function (x) { return '<span><i style="background:' + x.color + (x.points ? ';height:6px;width:6px;border-radius:50%' : '') + '"></i>' + esc(x.label) + '</span>'; }).join('') + (ref.bands.length ? '<span><i style="background:rgba(242,242,242,.35)"></i>published range</span>' : '') + (ref.series.length || ref.bands.length ? '' : '<span>no reference overlay for these conditions</span>');
     });
@@ -278,14 +285,14 @@
       ctx.strokeStyle = C.line; ctx.strokeRect(PX(e[0]), PY(e[3]), (e[2] - e[0]) * scl, (e[3] - e[1]) * scl);
       ctx.strokeStyle = C.dim; ctx.lineWidth = 2;
       (d.walls || []).forEach(function (w) { ctx.beginPath(); ctx.moveTo(PX(w[0]), PY(w[1])); ctx.lineTo(PX(w[2]), PY(w[3])); ctx.stroke(); });
-      var Lp = CMAPS[d.cmap || 'sequential'], r = Math.max(1.2, (d.radius || 0) * scl), plo = d.range ? d.range[0] : 0, phi = d.range ? d.range[1] : 1;
+      var Lp = CMAPS[d.cmap && d.cmap !== 'sequential' ? d.cmap : 'particles'], r = Math.max(2, (d.radius || 0) * 2 * scl), plo = d.range ? d.range[0] : 0, phi = d.range ? d.range[1] : 1;
       for (var p = 0; p < d.n; p++) {
         var kk = 200 * 3;
         if (d.value) { kk = (d.value[p] - plo) / (phi - plo || 1) * 255; kk = (kk < 0 ? 0 : kk > 255 ? 255 : kk | 0) * 3; }
         ctx.fillStyle = 'rgb(' + Lp[kk] + ',' + Lp[kk + 1] + ',' + Lp[kk + 2] + ')';
         ctx.fillRect(PX(d.x[p]) - r / 2, PY(d.y[p]) - r / 2, r, r);
       }
-      leg.innerHTML = d.value ? '<span>' + fmt(plo) + '</span><canvas style="background:' + cssLut(d.cmap || 'sequential') + '"></canvas><span>' + fmt(phi) + '</span><span>' + esc(d.label || '') + ' · ' + d.n + ' particles</span>' : '<span>' + d.n + ' particles</span>';
+      leg.innerHTML = d.value ? '<span>' + fmt(plo) + '</span><canvas style="background:' + cssLut(d.cmap && d.cmap !== 'sequential' ? d.cmap : 'particles') + '"></canvas><span>' + fmt(phi) + '</span><span>' + esc(d.label || '') + ' · ' + d.n + ' particles</span>' : '<span>' + d.n + ' particles</span>';
     } else if (d.kind === 'profiles') {
       var ph = g.h / d.panels.length;
       d.panels.forEach(function (pn, idx) {
@@ -427,11 +434,12 @@
 
   /* ---------------- lifecycle ---------------- */
   function showErr(msg) { var b = $('banner'); b.textContent = msg; b.classList.add('show'); }
-  function clearErr() { $('banner').classList.remove('show'); }
+  function clearErr() { $('banner').classList.remove('show', 'note'); }
+  function showNote(msg) { var b = $('banner'); b.textContent = msg; b.classList.add('show', 'note'); }
 
   function reset(keepParams) {
     $('param-pending').textContent = '';
-    clearErr(); S.hist = {}; S.ke0 = null; S.inv0 = null; S.tot0 = null;
+    clearErr(); S.pastEnd = false; S.hist = {}; S.ke0 = null; S.inv0 = null; S.tot0 = null;
     var m = LAB.methods[S.method];
     if (!m) { S.sim = null; showErr('No method registered for this scene yet.'); return; }
     if (!keepParams) {
@@ -455,9 +463,12 @@
     if (S.running && S.sim) {
       var t0 = performance.now(), n = 0;
       try {
-        while (n < S.spf && performance.now() - t0 < 28) { S.sim.step(); n++; }
+        var tE = !S.pastEnd && LAB.scenes[S.scene] && LAB.scenes[S.scene].tEnd;
+        while (n < S.spf && performance.now() - t0 < 28) { if (tE && S.sim.t >= tE - 1e-12) break; S.sim.step(); n++; }
       } catch (e) { S.running = false; syncRun(); showErr('step() threw at t=' + fmt(S.sim.t) + ': ' + e.message); }
       if (S.sim.diverged && S.sim.diverged()) { S.running = false; syncRun(); showErr('Diverged at t = ' + fmt(S.sim.t) + ' (NaN/Inf or blow-up). Reduce the step size or Reynolds number; this is reported, not hidden.'); }
+      var tEnd = LAB.scenes[S.scene] && LAB.scenes[S.scene].tEnd;
+      if (tEnd && !S.pastEnd && S.sim.t >= tEnd - 1e-12) { S.pastEnd = true; S.running = false; syncRun(); showNote('Reached the comparison time t = ' + tEnd + ' (reference overlay is the exact solution at this time). Run again to continue past it.'); }
       recordHistory();
       S.frame++;
       drawView();

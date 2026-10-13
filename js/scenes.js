@@ -49,6 +49,7 @@
   LAB.registerScene({
     id: 'sod',
     title: 'Sod shock tube',
+    tEnd: 0.2,
     domain: 'x ∈ [0, 1], diaphragm at 0.5, (ρ,u,p)_L = (1,0,1), (ρ,u,p)_R = (0.125,0,0.1), γ = 1.4.',
     nondim: 'Dimensionless gas dynamics; compare at t = 0.2.',
     probes: ['profile', 'totals'],
@@ -66,6 +67,7 @@
   LAB.registerScene({
     id: 'swe-dambreak',
     title: '1D shallow-water dam break',
+    tEnd: 6,
     domain: 'Channel [0, L] with a dam at x0; still water h_l upstream, h_r ≥ 0 downstream, g = 9.81. Params: hl, hr, x0, L, g.',
     nondim: 'Dimensional (SI). Ritter (h_R = 0) and Stoker (h_R > 0) analytic solutions.',
     probes: ['profile', 'totals'],

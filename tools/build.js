@@ -55,4 +55,8 @@ html = html.replace('<!--SCRIPTS-->', scripts.map(inl).join('\n'));
 html = html.replace('<script src="js/ui.js"></script>', inl('js/ui.js'));
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'dist/browserlab.html'), html);
+/* artifact variant: page content only (host supplies doctype/head/body skeleton) */
+const head = html.slice(html.indexOf('<head>') + 6, html.indexOf('</head>')).replace(/<meta charset[^>]*>|<meta name="viewport"[^>]*>/g, '');
+const body = html.slice(html.indexOf('<body>') + 6, html.lastIndexOf('</body>'));
+fs.writeFileSync(path.join(ROOT, 'dist/browserlab.artifact.html'), head.trim() + '\n' + body.trim() + '\n');
 console.log('index.html: ' + scripts.length + ' scripts; dist/browserlab.html: ' + (html.length / 1024).toFixed(0) + ' KiB');

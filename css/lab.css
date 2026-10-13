@@ -69,9 +69,9 @@ select:focus, button:focus-visible, input:focus-visible { outline: 1px solid var
 .sec h2 { margin: 0 0 8px; font: 500 10.5px var(--mono); text-transform: uppercase; letter-spacing: .09em; color: var(--dim); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .sec h2 .n { color: var(--faint); }
 .claim { font-size: 13.5px; line-height: 1.45; margin: 0 0 8px; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font: 12px var(--mono); }
+.kv { display: grid; grid-template-columns: minmax(64px, auto) 1fr; gap: 3px 10px; font: 11.5px var(--mono); }
 .kv dt { color: var(--dim); }
-.kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
 .list { margin: 0; padding-left: 16px; }
 .list li { margin: 3px 0; }
 .dim { color: var(--dim); }
@@ -112,6 +112,7 @@ canvas.main { display: block; width: 100%; background: #07090b; border: 1px soli
 .plot .key i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 4px; }
 .banner { margin: 10px 12px 0; padding: 8px 10px; border: 1px solid var(--flag); color: var(--flag); font: 12px var(--mono); display: none; }
 .banner.show { display: block; }
+.banner.note { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- right ---------- */
 .rtabs { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 2; }

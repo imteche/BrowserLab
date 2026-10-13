@@ -7,8 +7,9 @@
  *   1. wall vorticity from Thom's formula (current psi),
  *   2. explicit (forward Euler) vorticity transport at interior nodes, convection central or
  *      first-order upwind, diffusion 5-point Laplacian,
- *   3. Poisson solve  lap(psi) = -omega  by point SOR (lexicographic Gauss-Seidel order,
- *      optimal factor 2/(1+sin(pi h))), warm-started from the previous psi,
+ *   3. Poisson solve  lap(psi) = -omega  by geometric multigrid V(2,2) cycles (red-black
+ *      Gauss-Seidel smoother, full weighting, bilinear prolongation, SOR on the coarsest grid),
+ *      warm-started from the previous psi, repeated until the largest psi change < 1e-10,
  *   4. u = dpsi/dy, v = -dpsi/dx by central differences; walls u=v=0, lid u=1.
  * dt is recomputed each step from the stability limits times a safety factor 'cfl'.
  * residual probe = max over nodes of |u^{n+1}-u^n|, |v^{n+1}-v^n| divided by dt
@@ -27,7 +28,7 @@
       'Laplacian is −ω. Velocities come from derivatives of ψ, so the discrete flow is exactly ' +
       'divergence-free and no pressure is needed. Each step marches ω explicitly on a uniform ' +
       'grid (central or first-order upwind convection, centred diffusion), solves the Poisson ' +
-      'equation for ψ by over-relaxed Gauss–Seidel starting from the previous ψ, and sets the ' +
+      'equation for ψ by multigrid starting from the previous ψ, and sets the ' +
       'wall vorticity from Thom’s formula, which encodes no-slip and the moving lid. Run long ' +
       'enough, the time march settles to the steady cavity flow; ψ_min and the primary vortex ' +
       'centre come straight out of the ψ field.',
@@ -69,12 +70,12 @@
           { key: 'N', label: 'Grid cells per side (N, nodes N+1)', min: 16, max: 512, step: 16, value: 128, live: false },
           { key: 'scheme', label: 'Convection: 0 central, 1 upwind', min: 0, max: 1, step: 1, value: 0, live: false },
           { key: 'cfl', label: 'Time-step safety factor (fraction of stability limit)', min: 0.05, max: 1, step: 0.05, value: 0.8, live: true },
-          { key: 'sorIters', label: 'Max SOR sweeps per step', min: 1, max: 500, step: 1, value: 50, live: true }
+          { key: 'mgCycles', label: 'Max multigrid V-cycles per step', min: 1, max: 50, step: 1, value: 10, live: true }
         ],
         notes: 'Uniform grid, psi = 0 on walls, Thom wall vorticity with lid speed 1. psi_min and vortex_center ' +
           'are the minimum of the nodal psi refined by a 1-D parabola through the three nodes in x and in y. ' +
           'residual = max |Δu|, |Δv| per unit time. With N=128 the nodes coincide with Ghia’s 129-point grid. ' +
-          'The SOR loop stops early when the largest psi correction falls below 1e-10.'
+          'The multigrid loop stops early when the largest psi correction of a V-cycle falls below 1e-10.'
       }
     },
 
@@ -84,11 +85,10 @@
       var N = Math.max(4, Math.round(+params.N));
       var scheme = Math.round(+params.scheme) === 1 ? 1 : 0;
       var cfl = +params.cfl;
-      var sorIters = Math.max(1, Math.round(+params.sorIters));
+      var mgCycles = Math.max(1, Math.round(+params.mgCycles));
       var M = N + 1, NN = M * M;
       var h = 1 / N, h2 = h * h, inv2h = 0.5 / h, invh2 = 1 / h2, nu = 1 / Re;
-      var omSOR = 2 / (1 + Math.sin(Math.PI * h));
-      var SOR_TOL = 1e-10;
+      var MG_TOL = 1e-10;
       var ULID = 1;
 
       var psi = new Float64Array(NN), w = new Float64Array(NN), wn = new Float64Array(NN);
@@ -169,21 +169,93 @@
         for (j = 1; j < N; j++) for (i = 1; i < N; i++) { k = j * M + i; w[k] = wn[k]; }
       }
 
-      function poisson() {
-        var it, i, j, k, r, corr, cmax = 0;
-        for (it = 0; it < sorIters; it++) {
-          cmax = 0;
-          for (j = 1; j < N; j++) {
-            k = j * M + 1;
-            for (i = 1; i < N; i++, k++) {
-              r = 0.25 * (psi[k + 1] + psi[k - 1] + psi[k + M] + psi[k - M] + h2 * w[k]) - psi[k];
-              corr = omSOR * r;
-              psi[k] += corr;
-              if (corr < 0) corr = -corr;
-              if (corr > cmax) cmax = corr;
+      // ---- geometric multigrid for lap(psi) = -omega (vertex-centred, Dirichlet psi = 0) ----
+      // level 0 is the fine grid; coarsen while the cell count is even and >= 4.
+      var levels = [];
+      (function buildLevels() {
+        var n = N;
+        while (true) {
+          var m = n + 1;
+          levels.push({ n: n, m: m, x: levels.length ? new Float64Array(m * m) : null,
+            f: new Float64Array(m * m), r: new Float64Array(m * m), h2: 1 / (n * n) });
+          if (n % 2 !== 0 || n < 4) break;
+          n = n / 2;
+        }
+      })();
+      levels[0].x = psi;
+
+      // red-black Gauss-Seidel on lap(x) = -f  (i.e. x = (sum nbrs + h^2 f)/4)
+      function smooth(L, sweeps, relax) {
+        var n = L.n, m = L.m, x = L.x, f = L.f, hh = L.h2, s, c, i, j, k, start, r;
+        for (s = 0; s < sweeps; s++) {
+          for (c = 0; c < 2; c++) {
+            for (j = 1; j < n; j++) {
+              start = 1 + ((j + c) & 1);
+              k = j * m + start;
+              for (i = start; i < n; i += 2, k += 2) {
+                r = 0.25 * (x[k + 1] + x[k - 1] + x[k + m] + x[k - m] + hh * f[k]) - x[k];
+                x[k] += relax * r;
+              }
             }
           }
-          if (cmax < SOR_TOL) { it++; break; }
+        }
+      }
+      function resid(L) {   // r = f + lap(x)   (residual of lap(x) = -f, sign so that lap(e) = -r)
+        var n = L.n, m = L.m, x = L.x, f = L.f, r = L.r, ih = 1 / L.h2, i, j, k;
+        for (j = 1; j < n; j++) {
+          k = j * m + 1;
+          for (i = 1; i < n; i++, k++) r[k] = f[k] + (x[k + 1] + x[k - 1] + x[k + m] + x[k - m] - 4 * x[k]) * ih;
+        }
+      }
+      function restrict(F, C) { // full weighting of F.r into C.f
+        var nc = C.n, mc = C.m, mf = F.m, r = F.r, f = C.f, I, J, k;
+        for (J = 1; J < nc; J++) for (I = 1; I < nc; I++) {
+          k = (2 * J) * mf + 2 * I;
+          f[J * mc + I] = 0.25 * r[k] + 0.125 * (r[k + 1] + r[k - 1] + r[k + mf] + r[k - mf]) +
+            0.0625 * (r[k + mf + 1] + r[k + mf - 1] + r[k - mf + 1] + r[k - mf - 1]);
+        }
+      }
+      function prolongAdd(C, F) { // bilinear interpolation of C.x added to F.x (interior only)
+        var nf = F.n, mf = F.m, mc = C.m, xc = C.x, xf = F.x, i, j, k, I, J, ei, ej, val;
+        for (j = 1; j < nf; j++) {
+          J = j >> 1; ej = j & 1;
+          for (i = 1; i < nf; i++) {
+            I = i >> 1; ei = i & 1; k = J * mc + I;
+            if (!ei && !ej) val = xc[k];
+            else if (ei && !ej) val = 0.5 * (xc[k] + xc[k + 1]);
+            else if (!ei && ej) val = 0.5 * (xc[k] + xc[k + mc]);
+            else val = 0.25 * (xc[k] + xc[k + 1] + xc[k + mc] + xc[k + mc + 1]);
+            xf[j * mf + i] += val;
+          }
+        }
+      }
+      function vcycle(l) {
+        var L = levels[l];
+        if (l === levels.length - 1) {
+          var nsw = Math.max(4, 2 * L.n * L.n);   // coarsest grid: many relaxed sweeps (tiny grid)
+          smooth(L, Math.min(nsw, 400), 2 / (1 + Math.sin(Math.PI / L.n)));
+          return;
+        }
+        smooth(L, 2, 1);
+        resid(L);
+        var C = levels[l + 1];
+        restrict(L, C);
+        C.x.fill(0);
+        vcycle(l + 1);
+        prolongAdd(C, L);
+        smooth(L, 2, 1);
+      }
+
+      var psiPrev = new Float64Array(NN);
+      function poisson() {
+        var L0 = levels[0], it, k, d, cmax = 0;
+        L0.f = w;   // right-hand side is omega itself (lap psi = -omega); boundary entries unused
+        for (it = 0; it < mgCycles; it++) {
+          psiPrev.set(psi);
+          vcycle(0);
+          cmax = 0;
+          for (k = 0; k < NN; k++) { d = psi[k] - psiPrev[k]; if (d < 0) d = -d; if (d > cmax) cmax = d; }
+          if (cmax < MG_TOL) { it++; break; }
         }
         lastSweeps = it; lastCorr = cmax;
       }
@@ -218,7 +290,7 @@
         },
         setParam: function (key, value) {
           if (key === 'cfl') { cfl = +value; computeDt(); sim.dt = stab.dt; }
-          else if (key === 'sorIters') sorIters = Math.max(1, Math.round(+value));
+          else if (key === 'mgCycles') mgCycles = Math.max(1, Math.round(+value));
         },
         view: function (field) {
           field = field || 'vorticity';
@@ -277,7 +349,7 @@
             M_('diff', 'diffusion number νΔt/h²', stab.diff, '', 'g'),
             M_('pe', 'cell Péclet |u|h·Re', stab.pe, '', 'g'),
             M_('div', 'max |∇·u| (interior, central)', divmax, '', 'e'),
-            M_('sor', 'SOR sweeps last step', lastSweeps, '', 'i'),
+            M_('mg', 'V-cycles last step', lastSweeps, '', 'i'),
             M_('poisson', 'max |∇²ψ+ω| (interior)', poissonResidual(), '', 'e'),
             M_('psimin', 'ψ_min', pm ? pm.value : NaN, '', 'g')
           ];
