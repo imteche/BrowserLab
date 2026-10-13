@@ -7710,6 +7710,205 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
+<script>/* verification/results/lbm-d2q9@cavity-re100.js */
+/* Verification record: lbm-d2q9 @ cavity-re100. Reviewer: reviewer-lbm-d2q9-cavity-re100-r1 (not the builder).
+ * Numbers from verification/checks/lbm-d2q9@cavity-re100.check.js; report in
+ * verification/reports/lbm-d2q9@cavity-re100.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'lbm-d2q9@cavity-re100',
+    method: 'lbm-d2q9', scene: 'cavity', experiment: 'cavity-re100',
+    status: 'matched',
+    claim: 'D2Q9 BGK (halfway bounce-back walls, moving-wall bounce-back lid) on 128^2 cells at Ulat = 0.1 (tau = 0.884) reproduces ' +
+      'Ghia et al. (1982) at Re = 100: max |u - u_Ghia| = 0.0051 U on x = 0.5 and max |v - v_Ghia| = 0.0060 U on y = 0.5 (tol 0.02), ' +
+      'psi_min = -0.102161 (1.22% from -0.103423, tol 3%), primary-vortex centre (0.6158, 0.7369) within 0.0025 of (0.6172, 0.7344) (tol 0.02); ' +
+      'total mass conserved to round-off (1.7e-12 relative after 67968 steps).',
+    conditions: {
+      Re: 100, N: 128, Ulat: 0.1, tau: 0.884, Mach_max: 0.169, steps: 67968, t_end: 53.1,
+      convergence: 'residual (max |du| per unit time) < 1e-8; u_vcl / v_hcl changed < 1.2e-10 over the last 8.1 time units',
+      extra_runs: 'N = 64, Ulat = 0.1 (tau 0.692) and N = 128, Ulat = 0.05 (tau 0.692) to residual < 1e-7',
+      not_run: 'N = 256 (about 12 min per converged run at ~12 MLUPS; over the review budget)',
+      check: 'verification/checks/lbm-d2q9@cavity-re100.check.js'
+    },
+    reference: ['cavity-re100-ghia-u', 'cavity-re100-ghia-v', 'cavity-re100-ghia-psimin', 'cavity-re100-ghia-center'],
+    gaps: [
+      { quantity: 'max |u - u_Ghia| on x = 0.5 (17 rows; worst at y = 0.8516)', value: 0.00513, tolerance: 0.02, unit: 'U_lid', pass: true },
+      { quantity: 'max |v - v_Ghia| on y = 0.5 (17 rows; worst at x = 0.8594)', value: 0.00597, tolerance: 0.02, unit: 'U_lid', pass: true },
+      { quantity: 'psi_min relative error vs -0.103423 (sim -0.1021606)', value: 0.01221, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'primary-vortex centre max(|dx|,|dy|) vs (0.6172, 0.7344) (sim (0.6158, 0.7369))', value: 0.00245, tolerance: 0.02, unit: 'L', pass: true }
+    ],
+    checks: [
+      { name: 'mass conservation', status: 'pass',
+        detail: 'sum(rho) relative drift 1.68e-12 after 67968 steps (2.5e-17 per step), below the reviewer bound 10 eps per step (1.5e-10 total). ' +
+          'N = 64: 1.1e-12 / 29550 steps; N = 128, Ulat 0.05: 4.3e-12 / 116480 steps; drift grows with step count as round-off does. ' +
+          'Momentum and energy are not invariants of the driven viscous cavity.' },
+      { name: 'steady state reached', status: 'pass',
+        detail: 'residual 1.0e-8 at t = 53.1; over the preceding 8.1 time units u_vcl changes by 7.5e-11, v_hcl by 1.1e-10, psi_min by 2.6e-11 (all << 1% of tolerances).' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/blow-up in any run; tau = 0.884 > 0.5 (0.692 in the other runs); max Mach |u|/c_s = 0.169 < 0.3 (method criterion; Ulat 0.05 run: 0.085).' },
+      { name: 'quantitative vs Ghia (u, v tables; psi_min; centre)', status: 'pass',
+        detail: 'all four gaps within reference tolerances at N = 128; also at N = 64 (u 0.0063, v 0.0036, psi 2.43%, centre 0.0026). ' +
+          'Halving Ulat to 0.05 at N = 128 changes gaps by < 5e-4 (u 0.0051, v 0.0064, psi 1.17%), so Mach (compressibility) error is not the dominant error.' },
+      { name: 'weak compressibility (information)', status: 'n/a',
+        detail: 'max |div u| of the lattice velocity = 4.1 U/L at N = 128 (3.3 at N = 64, 6.6 at Ulat 0.05). Located by maximum only (the probe does not report where); ' +
+          'presumably the lid-corner velocity singularity. No criterion is stated by the method or reference; not used for classification.' },
+      { name: 'grid trend (information)', status: 'n/a',
+        detail: 'psi_min error 2.43% (N = 64) -> 1.22% (N = 128), ratio 2.0, i.e. first-order-like at fixed Ulat. With Ulat fixed, tau rises with N (0.692 -> 0.884), ' +
+          'and BGK halfway bounce-back has a tau-dependent effective wall position, which would give an O(h) viscosity-dependent error; this is a known BGK property, not a demonstrated implementation defect. ' +
+          'psi_min under-shoots Ghia while u/v profiles are slightly larger in magnitude near the lid.' }
+    ],
+    missing: [
+      'ghia1982 is registered verified:false: original paper paywalled and not read. u/v tables come from open, mutually identical transcriptions (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-cfdgasman-ghia; verified:true copies); table numbers (I, II) not checked against the original.',
+      'psi_min = -0.103423 is quoted from a single copy (copy-cfdgasman-ghia README) plus a 5-digit search snippet; vortex-centre value from a single copy (copy-sujaldave-ghia, Table V per that copy). Table numbers III/V unverified.',
+      'LBM method sources (qian1992, he1997, ladd1994, zou1997, hou1995) were not read in full by the researcher (abstracts/snippets only); equation numbers unverified. Hou et al. LBM cavity numbers not obtained for an LBM-specific comparison.',
+      'N = 256 not run (runtime budget), so convergence order rests on two grids; a diffusive-scaling sequence (fixed tau) was not run.',
+      'Ghia values are themselves a 2nd-order 129^2 solution; no higher-accuracy Re = 100 reference is registered.',
+      'Steadiness (1% of tolerances) and mass (10 eps per step) criteria are reviewer-set; no source specifies them. The mass bound replaced a first-draft fixed 1e-12 cap that did not scale with step count (the measured drift 1.7e-12 is round-off either way).'
+    ],
+    reviewer: 'reviewer-lbm-d2q9-cavity-re100-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'N=128 Ulat=0.1 steady run (residual<1e-8): u gap 0.0051, v gap 0.0060 (tol 0.02), psi_min 1.22% (tol 3%), centre 0.0025 (tol 0.02); mass drift 1.7e-12 (round-off), Ma 0.17, tau 0.884, no NaN. Ghia original verified:false, values from open verified copies; recorded in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/lbm-d2q9@cavity-re1000.js */
+/* Verification record: lbm-d2q9 @ cavity-re1000. Reviewer: reviewer-lbm-d2q9-cavity-re1000-r1 (not the builder).
+ * Numbers from verification/checks/lbm-d2q9@cavity-re1000.check.js; report in
+ * verification/reports/lbm-d2q9@cavity-re1000.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'lbm-d2q9@cavity-re1000',
+    method: 'lbm-d2q9', scene: 'cavity', experiment: 'cavity-re1000',
+    status: 'matched',
+    claim: 'D2Q9 BGK (halfway bounce-back walls, moving-wall bounce-back lid) on 192^2 cells at Ulat = 0.1 (tau = 0.558) reproduces ' +
+      'the Re = 1000 cavity centreline profiles of Ghia et al. (1982) to 0.0074 U (u) and 0.0067 U (v) and of Erturk et al. (2005) to 0.0102 U (tol 0.03); ' +
+      'psi_min = -0.116291 is 1.39% from Ghia and 2.10% from Erturk (tol 3%); primary-vortex centre (0.5317, 0.5655) within 0.0030 of Ghia (tol 0.02). ' +
+      'Also passes at the method default N = 128 except psi_min vs Erturk (3.15%, tol 3%). Total mass conserved to round-off. ' +
+      'psi_min converges at first order in N (acoustic scaling); a first-order Richardson estimate from N = 128/192 gives -0.11879, 0.003% from Erturk.',
+    conditions: {
+      Re: 1000, N: 192, Ulat: 0.1, tau: 0.5576, Mach_max: 0.167, steps: 180768, t_end: 94.15,
+      convergence: 'stopped by the wall-clock cap at residual 7.4e-6 (max |du| per unit time); the converged N = 128 history shows changes after t = 90 of <= 3e-5 U in the profile gaps and 1.7e-5 in psi_min',
+      extra_runs: 'N = 128 Ulat 0.1 (tau 0.538, residual 9.8e-8 at t = 146.9); N = 64 Ulat 0.1 (tau 0.519, t = 150, residual 1.6e-7); N = 128 Ulat 0.05 (tau 0.519, truncated at t = 77.75, compared at t = 70)',
+      not_run: 'N = 256 (about 13.5 s per time unit at 12 MLUPS; t >= 60 needed, i.e. > 13 min; a contended first attempt reached only t = 19 in 530 s)',
+      check: 'verification/checks/lbm-d2q9@cavity-re1000.check.js'
+    },
+    reference: ['cavity-re1000-ghia-u', 'cavity-re1000-ghia-v', 'cavity-re1000-erturk-u', 'cavity-re1000-ghia-psimin', 'cavity-re1000-erturk-psimin', 'cavity-re1000-ghia-center'],
+    gaps: [
+      { quantity: 'max |u - u_Ghia| on x = 0.5 (17 rows; worst at y = 0.0703), N = 192', value: 0.00739, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'max |v - v_Ghia| on y = 0.5 (17 rows; worst at x = 0.8594), N = 192', value: 0.00670, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'max |u - u_Erturk| on x = 0.5 (23 rows; worst at y = 0.12), N = 192', value: 0.01017, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'psi_min relative error vs Ghia -0.117929 (sim -0.116291), N = 192', value: 0.01389, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'psi_min relative error vs Erturk -0.118781 (sim -0.116291), N = 192', value: 0.02096, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'primary-vortex centre max(|dx|,|dy|) vs Ghia (0.5313, 0.5625) (sim (0.5317, 0.5655)), N = 192', value: 0.00303, tolerance: 0.02, unit: 'L', pass: true }
+    ],
+    checks: [
+      { name: 'mass conservation', status: 'pass',
+        detail: 'sum(rho) relative drift 8.9e-12 after 180768 steps at N = 192 (4.9e-17 per step), below the reviewer bound 10 eps per step (4.0e-10). ' +
+          'N = 128: 9.3e-12 / 188032 steps; N = 64: 4.7e-12 / 96000; N = 128 Ulat 0.05: 9.8e-12 / 199040. Momentum and energy are not invariants of the driven viscous cavity.' },
+      { name: 'steady state', status: 'pass',
+        detail: 'N = 192 truncated by the wall cap at t = 94.15, residual 7.4e-6; over t = 80 -> 94 its gaps change by <= 3e-5 U and psi_min by 2.2e-5. ' +
+          'The N = 128 run (residual 9.8e-8 at t = 146.9) changes by <= 3e-5 U in the gaps and 1.7e-5 in psi_min after t = 90, so the remaining N = 192 transient is far below every margin.' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/blow-up in any run; tau = 0.558 (N = 192), 0.538 (N = 128), 0.519 (N = 64 and N = 128 Ulat 0.05), all > 0.5 and at or above the method\'s practical BGK floor ~0.51-0.55; ' +
+          'max Mach |u|/c_s = 0.167 < 0.3 (method criterion; 0.082 at Ulat 0.05).' },
+      { name: 'quantitative vs Ghia / Erturk', status: 'pass',
+        detail: 'All six gaps within reference tolerances at N = 192. N = 128 (method default): u 0.0124, v 0.0096, Erturk u 0.0156, psi_min 2.45% (Ghia) pass, but 3.15% vs Erturk psi_min (tol 3%) fails, centre 0.0032. ' +
+          'N = 64: u 0.0288, v 0.0250 pass, Erturk u 0.0330 fails, psi_min 5.6% / 6.3% fail.' },
+      { name: 'grid convergence (information)', status: 'n/a',
+        detail: 'psi_min -0.111346 / -0.115044 / -0.116291 at N = 64 / 128 / 192: difference ratio 2.97 vs 3.0 expected for first order (h ratio 2, 1.5). At fixed Ulat tau varies with N, so this mixes the O(h) tau-dependent wall location of BGK halfway bounce-back with O(h^2) terms; ' +
+          'first-order Richardson from N = 128/192: -0.11879 (Erturk -0.118781, Botella ~-0.1189). Profile gaps: Ghia u 0.029 -> 0.012 -> 0.0074. Known BGK behaviour, not evidence of an implementation defect.' },
+      { name: 'Mach sensitivity (information)', status: 'n/a',
+        detail: 'N = 128, Ulat 0.05 vs 0.1 at equal t = 70: psi_min differs by 0.095%, Ghia u gap by 3e-5, v gap by 6e-4, Erturk u gap by 5e-5. Compressibility error is not the dominant error at Ulat 0.1.' },
+      { name: 'weak compressibility (information)', status: 'n/a',
+        detail: 'max |div u| of the lattice velocity = 14.4 U/L at N = 192 (10.2 at N = 128, 5.5 at N = 64), a single maximum growing with N, consistent with the lid-corner singularity. No stated criterion; not used for classification.' }
+    ],
+    missing: [
+      'ghia1982 is registered verified:false: original paper paywalled and not read. Re = 1000 u/v tables come from open transcriptions (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-xuaoxiqi-ghia; verified:true) which disagree at one point (v at x = 0.9063: -0.51550 vs -0.51500; majority used; the sim gap there is 0.0006 vs the majority value, 0.0001 vs -0.51500).',
+      'Ghia psi_min -0.117929 and vortex centre (0.5313, 0.5625) at Re = 1000 come from search snippets and a single copy (copy-sujaldave-ghia); table numbers unverified.',
+      'erturk2005 is registered verified:false: arXiv not reachable from the container. Erturk u table is from the lethe copy (first three entries confirmed by a search snippet); Erturk psi_min -0.118781 from a single search snippet.',
+      'botella1998 (spectral) not read; only snippet values in the reference range; not used as a gap.',
+      'N = 256 not run (runtime budget); the primary N = 192 run stopped at residual 7.4e-6 rather than 1e-7 (transient remainder bounded from the N = 128 history). A fixed-tau (diffusive scaling) grid sequence was not run, so the order estimate mixes grid and tau effects.',
+      'LBM method sources (qian1992, he1997, ladd1994, zou1997, hou1995) were not read in full by the researcher; hou1995 LBM cavity numbers not obtained for an LBM-specific comparison.',
+      'Steadiness and mass (10 eps per step) criteria are reviewer-set; no source specifies them. Sim profiles are evaluated at table coordinates by 4-point Lagrange interpolation of the cell-centre profile (reviewer choice).'
+    ],
+    reviewer: 'reviewer-lbm-d2q9-cavity-re1000-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'N=192 Ulat=0.1 (tau 0.558): Ghia u/v and Erturk u gaps 0.0074/0.0067/0.0102 U (tol 0.03), psi_min 1.39% Ghia / 2.10% Erturk (tol 3%), centre 0.0030 (tol 0.02); mass drift 8.9e-12, Ma 0.167, no NaN; run truncated at residual 7.4e-6 with remaining transient <= 3e-5 bounded from converged N=128. N=128 default fails only Erturk psi_min (3.15%). Ghia/Erturk verified:false via open copies/snippets, recorded in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/mls-mpm@dam-front.js */
+/* Verification record: mls-mpm @ dam-front. Reviewer: reviewer-mls-mpm-dam-front-r1 (not the builder).
+ * Numbers from verification/checks/mls-mpm@dam-front.check.js; report in verification/reports/mls-mpm@dam-front.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'mls-mpm@dam-front',
+    method: 'mls-mpm', scene: 'dam-break', experiment: 'dam-front',
+    status: 'matched',
+    claim: 'MLS-MPM (APIC, weakly compressible p = -E(J-1), default cfac = 10, cfl = 0.4, separating walls) reproduces the Martin & Moyce (1952) ' +
+      'surge-front history Z(T) for the a = 2.25 in, n^2 = 2 column over 0 < T <= 3 within the reference tolerance 0.25 after one time shift dT in [0, 0.25]: ' +
+      'max |Z - Z_ref| = 0.085 (dT = 0.24) at N = 96 cells across a (73 728 particles), 0.087 / 0.090 / 0.097 at N = 64 / 32 / 16. Never exceeds the Ritter bound; ' +
+      'mass exact, P2G/G2P momentum at round-off (<= 1.2e-14), energy non-increasing, stable, max |J-1| <= 2.6% (time-mean 0.12%). ' +
+      'Without the shift the error is 0.40 (N = 96), and the best shift grows with resolution toward the 0.25 limit (0.20 -> 0.24).',
+    conditions: {
+      a: 0.05715, g: 9.81, rho0: 1000, N: '16 / 32 / 64 / 96 grid cells across a (2048 / 8192 / 32768 / 73728 particles, 4 per cell); primary N = 96',
+      tank: '5a x 3a (default); extended 12a x 3a at N = 32 for the a = 2.25 in digitised series',
+      cfac: '10 (c0 = 10 sqrt(2 g 2a) = 14.98 m/s); sensitivity 20 at N = 32', cfl: '0.4 (acoustic, adaptive dt); sensitivity 0.2 at N = 32',
+      bc: '0 (separating slip, mpm88); sensitivity bc = 1 (sticky sides) at N = 32',
+      steps: '1853 / 3707 / 7420 / 11133 to T = 3.05', T_end: '3.05 (default tank), 9.4 (extended tank)',
+      metric: 'max |Z_sim(T - dT) - Z_ref(T)| over reference points 0 < T <= 3, single dT in [0, 0.25] (step 0.005)',
+      check: 'verification/checks/mls-mpm@dam-front.check.js (about 6 min)'
+    },
+    reference: ['dam-break-mm-front-lethe', 'dam-break-mm-front-a225', 'dam-break-ritter-front-bound'],
+    gaps: [
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.24, N = 96', value: 0.0850, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.235, N = 64', value: 0.0869, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.22, N = 32', value: 0.0902, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.20, N = 16', value: 0.0966, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs PySPH a = 2.25 in series, 0 < T <= 3, best shift dT = 0.25, N = 32 (tank 12a)', value: 0.0625, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max over all steps of Z - (1 + 2T) (Ritter bound; must be <= 0), all runs', value: -0.0032, tolerance: 0, unit: 'Z = x/a', pass: true }
+    ],
+    checks: [
+      { name: 'mass conservation', status: 'pass', detail: 'fixed particle masses; relative mass drift 0 in every run' },
+      { name: 'P2G / G2P momentum conservation', status: 'pass',
+        detail: 'method diagnostics |sum grid momentum - sum particle momentum| / (M vmax), sampled every 5 steps (step 1 skipped): max P2G 1.9e-15 / 4.3e-15 / 8.4e-15 / 1.2e-14 and G2P 2.1e-15 / 3.1e-15 / 6.7e-15 / 1.2e-14 at N = 16/32/64/96 (criterion <= 1e-10, round-off). Total momentum: n/a (gravity, walls).' },
+      { name: 'energy (dissipative: must not increase)', status: 'pass',
+        detail: 'E = KE + PE + elastic (sum V_p E (J-1)^2/2; initial elastic 1.7e-3 E0). max (E - E0)/E0 = -4.2e-5 / -2.1e-5 / -1.0e-5 / -6.8e-6 at N = 16/32/64/96 (reviewer criterion <= 1e-3). E(T=3)/E0 - 1 = -1.5% / -2.2% / -3.1% / -4.0% (loss grows with resolution); extended run -11.2% at T = 9.4.' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/diverged() in any run (to T = 9.4). acoustic CFL dt(c0+|v|)/dx <= 0.4001 (cfl = 0.4; mpm88 runs at ~0.51); max |v| dt/dx = 0.040 (0.053 extended tank), stated limit < 1; 0 position clamps.' },
+      { name: 'compressibility (J deviation)', status: 'pass',
+        detail: 'max Mach |v|max/c0 = 0.109-0.111; max |J-1| over 0 < T <= 3 = 1.19% / 1.58% / 1.83% / 2.59% at N = 16/32/64/96 (grows with resolution, local impact/front peaks); particle-mean |J-1| time-averaged 0.125% / 0.122% / 0.121% / 0.120% (reviewer criterion <= 1%, the delta rho/rho ~ Ma^2 rule behind c0 = 10 U). cfac = 20: Mach 0.055, max |J-1| 0.89%, mean 0.035%.' },
+      { name: 'parameter sensitivity of Z(T) (N = 32)', status: 'pass',
+        detail: 'best-shift error 0.090 (default) / 0.095 (cfac 20) / 0.089 (bc 1) / 0.091 (cfl 0.2); Z(3) = 4.089 / 4.088 / 4.043 / 4.091. Front insensitive to sound speed and time step.' },
+      { name: 'resolution sensitivity', status: 'pass',
+        detail: 'Z(3) = 4.077 / 4.089 / 4.112 / 4.116 at N = 16/32/64/96 (increments 0.012, 0.023, 0.005: near converged). Unshifted error 0.365 / 0.372 / 0.393 / 0.398; best shift dT 0.20 / 0.22 / 0.235 / 0.24, i.e. approaching the 0.25 limit of the allowed shift. Minimum shift that brings the error under 0.25: 0.09-0.10.' },
+      { name: 'late-time front, T > 3 (outside the suggested window; information only)', status: 'n/a',
+        detail: 'extended tank 12a, N = 32, vs PySPH a = 2.25 in series to T = 6.82: max |dZ| = 0.565 at T = 6.31 even at dT = 0.25 (unshifted 1.05); sim leads by 0.43 at T = 4.03 and 0.41 at T = 5.69. Fitted slope dZ/dT over T 5.1-6.85: 1.91 (sim) vs 1.79 (data), Ritter 2. Front reaches 0.9 L_tank at T = 6.71. Not scored (window 0 < T <= 3 per reference).' }
+    ],
+    missing: [
+      'martin1952 is verified:false: the original paper is paywalled and was not read. Reference values come from two open copies (Lethe dam-break-2d.py, PySPH db_exp_data.py; both verified:true) that agree to |dZ| <= 0.08; the original table/figure was not checked.',
+      'ritter1892-pysph is verified:false for bibliographic details; the bound 2 sqrt(g H0) itself was confirmed in the PySPH SWE code.',
+      'hu2018mlsmpm (method paper) is verified:false (snippets only, host blocked); the update equations come from the open mpm88 / mls-mpm88-explained codes (verified:true). The fluid EOS p = -E(J-1) is a research interpretation (equation marked verified:false).',
+      'Research gap: no published quantitative MLS-MPM dam-break validation was found (research/ptc.md), so there is no MLS-MPM-specific protocol or published MPM Z(T) to compare against; the check is against experiment only.',
+      'The time shift dT (0.20-0.24 here, at the upper end of the allowed [0, 0.25]; cf. Lethe +0.175) is an allowance for gate-opening delay that the reference permits but no source quantifies. Without it the gap is 0.37-0.40 (> 0.25). The best shift creeps toward the 0.25 edge with refinement; the tolerance would still be met at any dT >= 0.10.',
+      'Beyond T = 3 (information only) the front leads the PySPH a = 2.25 in series by up to 0.57 in Z with the maximal shift; the late-time agreement is not established.',
+      'No reference for the residual column height H/2a(T) (no open copy of Martin & Moyce); not checked. Note: the column_height probe at T = 3.05 is 0.47 for N <= 64 but 0.36 at N = 96 (probe uses x < dx and a node-mass filter, so it is resolution dependent).',
+      'The 1e-3 E0 energy-gain criterion, the 1e-10 transfer-momentum criterion and the 1% mean |J-1| criterion are reviewer choices; no source gives these bounds for MLS-MPM. Elastic energy uses Float32 J from the view buffer.',
+      'Finer resolution than N = 96 (and the mpm88 random seeding) were not run within the 10-minute budget; particles here start on a regular 2x2 lattice.'
+    ],
+    reviewer: 'reviewer-mls-mpm-dam-front-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'Lethe Z(T) within 0.085 of 0.25 (dT = 0.24, N = 96; 0.087-0.097 at N = 16-64); a225 copy within 0.063 for T <= 3; Ritter bound respected; mass exact, P2G/G2P momentum at round-off, energy non-increasing; stable; max |J-1| 2.6%, mean 0.12%. ' +
+        'Unshifted gap 0.40, best shift near the 0.25 edge, and T > 3 late-time lead up to 0.57 (info) recorded; source caveats in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
 <script>/* verification/results/muscl-hancock@sod-t02.js */
 /* Verification record: muscl-hancock @ sod-t02. Reviewer: reviewer-muscl-hancock-sod-t02-r1 (not the builder).
  * Numbers from verification/checks/muscl-hancock@sod-t02.check.js; report in
@@ -7807,6 +8006,73 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
 </script>
+<script>/* verification/results/pbf@dam-front.js */
+/* Verification record: pbf @ dam-front. Reviewer: reviewer-pbf-dam-front-r1 (not the builder).
+ * Numbers from verification/checks/pbf@dam-front.check.js; report in verification/reports/pbf@dam-front.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'pbf@dam-front',
+    method: 'pbf', scene: 'dam-break', experiment: 'dam-front',
+    status: 'matched',
+    claim: 'PBF (default solver settings, 4 Jacobi iterations) reproduces the Martin & Moyce (1952) surge-front history Z(T) for the ' +
+      'a = 2.25 in, n^2 = 2 column over 0 < T <= 3 within the reference tolerance 0.25 after one time shift dT in [0, 0.25]: ' +
+      'max |Z - Z_ref| = 0.073 (dT = 0.20) at nx = 80 and 0.072 (dT = 0.19) at nx = 40 against the Lethe copy; never exceeds the Ritter ' +
+      'bound Z <= 1 + 2T; mass exact, energy non-increasing, stable. Without the shift the error is 0.34 (nx = 80), as the reference anticipates.',
+    conditions: {
+      a: 0.05715, g: 9.81, rho0: 1000, nx: '20 / 40 / 80 particles across a (800 / 3200 / 12800 particles); primary nx = 80',
+      tank: '5a x 4a (default); extended 12a x 4a at nx = 40 for the a = 2.25 in digitised series',
+      hdx: 2, cfl: 0.3, dt: '4.05e-4 / 2.02e-4 / 1.01e-4 s', iters: '4 (default); sensitivity 1, 2, 8, 16 at nx = 40',
+      eps: 0.01, k: 0.001, dq: 0.3, n: 4, c: 0.01, unilateral: 1, vort: 0,
+      T_end: '3.05 (default tank), 9.4 (extended tank)',
+      metric: 'max |Z_sim(T - dT) - Z_ref(T)| over reference points 0 < T <= 3, single dT in [0, 0.25] (step 0.005)',
+      check: 'verification/checks/pbf@dam-front.check.js (about 6-7 min)'
+    },
+    reference: ['dam-break-mm-front-lethe', 'dam-break-mm-front-a225', 'dam-break-ritter-front-bound'],
+    gaps: [
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.20, nx = 80', value: 0.0726, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.19, nx = 40', value: 0.0722, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs Lethe copy, 0 < T <= 3, best shift dT = 0.13, nx = 20', value: 0.0604, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs PySPH a = 2.25 in series, 0 < T <= 3, best shift dT = 0.24, nx = 40 (tank 12a)', value: 0.0181, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max over all steps of Z - (1 + 2T) (Ritter bound; must be <= 0), all runs', value: -0.0037, tolerance: 0, unit: 'Z = x/a', pass: true }
+    ],
+    checks: [
+      { name: 'mass conservation', status: 'pass', detail: 'equal fixed particle masses; relative mass drift 0 in every run' },
+      { name: 'energy (dissipative scheme: must not increase)', status: 'pass',
+        detail: 'default iters = 4: max (E - E0)/E0 = -1.3e-5 / -3.2e-6 / +1.3e-6 at nx = 20/40/80 (reviewer criterion <= 1e-3); E(T=3)/E0 - 1 = -4.5% / -3.0% / -2.0%. ' +
+          'Info: with iters = 16 an early transient (T ~ 0.36) raises E by +3.0e-3 E0 (iters = 1: +8.5e-4, iters = 8: +3.6e-4), coinciding with the column expanding (mean rho/rho0 - 1 = -5.4%).' },
+      { name: 'momentum', status: 'n/a', detail: 'not conserved by the physics (walls, gravity)' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/divergence in any run (up to T = 9.4). max |v| dt/dx = 0.233-0.236 (default tank), 0.316 (extended tank, front at wall); stated criterion |v| dt < h/2 = 1.0 dx' },
+      { name: 'density-constraint error', status: 'pass',
+        detail: 'time average over 0 < T <= 3 (iters = 4): mean (rho/rho0 - 1) = -2.6% / -2.0% / -1.8% at nx = 20/40/80 (includes free-surface kernel deficit); mean compression <max(C,0)> = 5.3e-4 / 5.5e-4 / 5.6e-4; max C <= 1.15%. ' +
+          'Iterations at nx = 40: mean C = -2.05% / -1.31% / -2.02% / -3.29% / -5.45% and mean compression 1.6e-3 / 1.1e-3 / 5.5e-4 / 2.6e-4 / 1.1e-4 for iters 1/2/4/8/16. No reference criterion; reported as requested.' },
+      { name: 'iteration sensitivity of Z(T)', status: 'pass',
+        detail: 'nx = 40: Z(T=3) = 4.006 / 4.009 / 4.001 / 4.002 / 3.986 and best-shift error 0.073 / 0.078 / 0.072 / 0.071 / 0.071 for iters 1/2/4/8/16: front history insensitive to iteration count' },
+      { name: 'resolution sensitivity', status: 'pass',
+        detail: 'Z(T=3) = 3.938 / 4.001 / 4.050 at nx = 20/40/80 (not converged; increments 0.063, 0.048). Best-shift error stable at 0.06-0.07; unshifted error grows 0.226 / 0.285 / 0.343 as the front speeds up with resolution' },
+      { name: 'late-time front, T > 3 (outside the suggested window; information only)', status: 'n/a',
+        detail: 'extended tank 12a, nx = 40, vs PySPH a = 2.25 in series to T = 6.82: max |dZ| = 0.313 at dT = 0.25 (bound of allowed shift; unshifted 0.78). Exceedances at T = 4.03 (0.313; the datum implies a local slope 2.44 > Ritter 2 to the next point, likely digitisation scatter) and T = 6.31 (0.311). ' +
+          'Fitted slope dZ/dT over T 5.1-6.85: 1.84 (sim) vs 1.79 (data). Not scored because the reference\'s suggested check is 0 < T <= 3 and the run needs a non-default tank.' }
+    ],
+    missing: [
+      'martin1952 is verified:false: the original paper is paywalled and was not read. Reference values come from two open copies (Lethe dam-break-2d.py, PySPH db_exp_data.py; both verified:true) that agree to |dZ| <= 0.08; the original table/figure was not checked.',
+      'ritter1892-pysph is verified:false for bibliographic details; the bound 2 sqrt(g H0) itself was confirmed in the PySPH SWE code.',
+      'macklin2013 (method source) is verified:false (snippets only); the method\'s equations were cross-checked by the builder against open code, not reviewed here.',
+      'Research gap: no published quantitative PBF dam-break validation exists (research/ptc.md), so there is no PBF-specific protocol or published PBF Z(T) to compare against; the check is against experiment only.',
+      'The time shift dT (0.19-0.20 here, cf. Lethe +0.175) is an allowance for gate-opening delay that the reference permits but no source quantifies; without it the gap is 0.34 (> 0.25).',
+      'Front position is not resolution-converged (Z(3) still rises by ~0.05 per doubling); a finer run (nx = 160) did not fit the 10-minute budget.',
+      'No reference for the residual column height H/2a(T) (no open copy of Martin & Moyce); not checked.',
+      'The 1e-3 E0 energy-gain criterion and the T > 3 treatment are reviewer choices; no source gives an energy bound for PBF.'
+    ],
+    reviewer: 'reviewer-pbf-dam-front-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'Lethe Z(T) within 0.073 of 0.25 (dT = 0.20, nx = 80; 0.072 at nx = 40); a225 copy within 0.018 for T <= 3; Ritter bound respected; mass exact, energy non-increasing at default settings; stable. ' +
+        'Unshifted gap 0.34 and T > 3 late-time gap 0.31 (info) recorded; source caveats in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
 <script>/* verification/results/psi-omega-fd@cavity-re100.js */
 /* Verification record: psi-omega-fd @ cavity-re100. Reviewer: reviewer-psi-omega-fd-cavity-re100-r1 (not the builder).
  * Numbers from verification/checks/psi-omega-fd@cavity-re100.check.js; report in
@@ -7859,6 +8125,65 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     reviewer: 'reviewer-psi-omega-fd-cavity-re100-r1', round: 1, date: '2026-10-13',
     history: [ { round: 1, status: 'matched',
       reason: 'N=128 steady run (residual<1e-9): u gap 0.0042, v gap 0.0084 (tol 0.02), psi_min 0.08% (tol 3%), centre 0.0034 (tol 0.02); solenoidal to 7e-15, stable within stated FTCS limits. Ghia original verified:false, values from open verified copies; recorded in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/psi-omega-fd@cavity-re1000.js */
+/* Verification record: psi-omega-fd @ cavity-re1000. Reviewer: reviewer-psi-omega-fd-cavity-re1000-r1 (not the builder).
+ * Numbers from verification/checks/psi-omega-fd@cavity-re1000.check.js; report in
+ * verification/reports/psi-omega-fd@cavity-re1000.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'psi-omega-fd@cavity-re1000',
+    method: 'psi-omega-fd', scene: 'cavity', experiment: 'cavity-re1000',
+    status: 'matched',
+    claim: 'Explicit stream-function/vorticity FD (central convection, Thom wall vorticity, multigrid Poisson) on a 257^2 grid ' +
+      'reproduces the Re = 1000 cavity centreline profiles of Ghia et al. (1982) and Erturk et al. (2005) to within 0.013 U_lid ' +
+      '(tol 0.03), psi_min to 0.03% of Ghia and 0.75% of Erturk (tol 3%), and the primary-vortex centre to 0.003 (tol 0.02). ' +
+      'psi_min converges at observed order 2.08 over N = 64/128/256; its Richardson extrapolation (-0.11870) is 0.07% from Erturk (601^2).',
+    conditions: {
+      Re: 1000, N: 256, scheme: 'central (0)', cfl: 0.8, mgCycles: 10, dt: 0.0016, steps: 34375, t_end: 55,
+      convergence: 'stopped at t = 55 (wall budget), residual max|du|/dt = 4.2e-5; N=128 run shows profiles move < 4.4e-4 U after t = 55',
+      supporting_runs: 'N = 128 to residual < 1e-7 (t = 138.9); N = 64 to t = 120 (residual 2.3e-7)',
+      check: 'verification/checks/psi-omega-fd@cavity-re1000.check.js'
+    },
+    reference: ['cavity-re1000-ghia-u', 'cavity-re1000-ghia-v', 'cavity-re1000-erturk-u', 'cavity-re1000-ghia-psimin',
+      'cavity-re1000-erturk-psimin', 'cavity-re1000-ghia-center'],
+    gaps: [
+      { quantity: 'max |u - u_ref| on x=0.5, Ghia Table I (17 pts), N=256', value: 0.0029, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'max |v - v_ref| on y=0.5, Ghia Table II (17 pts), N=256', value: 0.0131, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'max |u - u_ref| on x=0.5, Erturk 601^2 (23 pts), N=256', value: 0.0038, tolerance: 0.03, unit: 'U_lid', pass: true },
+      { quantity: 'psi_min rel. gap vs Ghia -0.117929 (sim -0.117893), N=256', value: 0.0003, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'psi_min rel. gap vs Erturk -0.118781, N=256', value: 0.0075, tolerance: 0.03, unit: 'rel', pass: true },
+      { quantity: 'vortex centre max-abs gap vs Ghia (0.5313, 0.5625); sim (0.5312, 0.5656), N=256', value: 0.0031, tolerance: 0.02, unit: 'L', pass: true }
+    ],
+    checks: [
+      { name: 'mass conservation (discrete divergence-free)', status: 'pass',
+        detail: 'max |div u| (central, interior) <= 1.4e-14 over all runs; Poisson residual max |lap psi + omega| <= 9.4e-9 at every logged step (multigrid tol 1e-10 on psi correction).' },
+      { name: 'circulation (Stokes theorem, discrete)', status: 'pass',
+        detail: 'integral of omega = -(1 - h) to 2e-11 on every grid at every logged step (-0.99609375 at N=256; the h deficit is the zeroed lid corner nodes in the trapezoid sum). Energy/momentum are not conserved in this forced, dissipative flow; KE settles to 0.04388 (N=256), 0.04229 (N=128).' },
+      { name: 'stability', status: 'pass',
+        detail: 'no NaN/divergence. dt = 0.0016 set by the central-scheme bound 2 nu/max|u|^2 times cfl 0.8 (dt/bound = 0.8 on all grids); max CFL 0.41, max diffusion number 0.105 (<= 0.25). Cell Peclet 3.9 (N=256), 7.8 (N=128), 15.6 (N=64) exceeds 2, but centreline profiles have exactly the expected extrema (1 in u, 2 in v) on every grid: no wiggles.' },
+      { name: 'quantitative', status: 'pass',
+        detail: 'All six gaps within tolerance at N=256. N=128 also passes (u 0.0138, v 0.0080, Erturk u 0.0167, psi_min 2.1%/2.8%); N=64 fails (0.062/0.061/0.068, psi_min 10.7%), as expected for 64 cells.' },
+      { name: 'grid convergence', status: 'pass',
+        detail: 'psi_min -0.105257 / -0.115473 / -0.117893 at N=64/128/256: observed order 2.08; Richardson (p=2) -0.118700, 0.07% from Erturk. Ghia-u and Erturk-u gaps fall ~4-5x from N=128 to 256.' },
+      { name: 'steady state (N=256 run truncated)', status: 'pass',
+        detail: 'N=256 stopped at t=55 with residual 4.2e-5 (psi_min still moving ~1.4e-5 per unit t). From the N=128 run, the remaining change after t=55 is <= 4.4e-4 U in the profiles and 0.11% in psi_min, far below every margin.' }
+    ],
+    missing: [
+      'ghia1982 is registered verified:false (paywalled original not read); Tables I/II values come from independent open copies (copy-ivanpi-ghia, copy-sujaldave-ghia, copy-xuaoxiqi-ghia, lethe) that agree except v(0.9063), where the majority -0.51550 is used (the -0.51500 alternative changes the v gap by < 0.001).',
+      'Ghia psi_min -0.117929 (6 digits) was not seen verbatim in any open copy; 4-digit 0.1179 confirmed by search snippets only. Table numbers III/V unverified.',
+      'erturk2005 is registered verified:false (arXiv not reachable): u-centreline column from the lethe copy, psi_min -0.118781 and centre (0.5300, 0.5650) from a single search snippet. Erturk v table not obtained, so v is checked against Ghia only.',
+      'Tolerances (0.03 U, 3%, 0.02) are the researcher\'s engineering bands in references/cavity.js, not source-stated error bars; applied unchanged.',
+      'N=256 run was stopped at t=55 by the ~10 min budget rather than run to residual 1e-7; transient remainder estimated from the N=128 run (documented in the report).',
+      'Equation locations cited by the method (erturk2005, e1996) are search-snippet based and unverified; this review checks outputs, not the cited derivations.'
+    ],
+    reviewer: 'reviewer-psi-omega-fd-cavity-re1000-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'matched',
+      reason: 'N=256: Ghia u/v and Erturk u gaps 0.0029/0.0131/0.0038 U (tol 0.03), psi_min 0.03%/0.75% (tol 3%), centre 0.003 (tol 0.02); divergence-free to 1e-14, stable within the stated dt bound, second-order psi_min convergence. Sources verified:false via open copies/snippets, recorded in missing.' } ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 
@@ -8050,6 +8375,137 @@ table.matrix td.unsup { background: repeating-linear-gradient(45deg, transparent
     reviewer: 'reviewer-symplectic-euler-kepler-e06-r1', round: 1, date: '2026-10-13',
     history: [ { round: 1, status: 'matched',
       reason: 'All 8 quantitative gaps within tolerance (orders 1.003/0.936, growth 0.9998/8e-9); energy bounded without drift over 1000T at two h; L conserved to 1.7e-13; stable. Sources snippet/secondary only (verified:false), recorded in missing.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/wcsph@dam-front.js */
+/* Verification record: wcsph @ dam-front. Reviewer: reviewer-wcsph-dam-front-r1 (not the builder).
+ * Numbers from verification/checks/wcsph@dam-front.check.js (--full); report in
+ * verification/reports/wcsph@dam-front.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'wcsph@dam-front',
+    method: 'wcsph', scene: 'dam-break', experiment: 'dam-front',
+    status: 'flagged',
+    claim: 'WCSPH with the method defaults (PySPH dam_break_2d settings: c0 = 10 sqrt(2g·2a), alpha = 0.1, h = 1.3dx, CFL 0.125) reproduces the ' +
+      'Martin & Moyce (1952) surge front: with one time shift dT = 0.13 (allowed range [0, 0.25]) max |Z_sim - Z_ref| = 0.077 over 0 < T <= 3 at N = 33 ' +
+      '(Lethe copy; tolerance 0.25), and 0.096 against the PySPH a = 2.25 in cross-copy with the same shift. The gap is 0.075-0.078 at N = 24, 33, 48 and 64. ' +
+      'Without a shift it is 0.19-0.30, and grows with N. The Ritter bound Z <= 1 + 2T holds at every step. Mass is exact. KE + PE + fluid EOS energy never rises by more than 1.1e-4 E0. ' +
+      'It is flagged because the method\'s own weak-compressibility criterion Ma = max|v|/c0 <= 0.1 is exceeded: 0.104-0.107 at all resolutions from T ~ 2.6, in the front tongue, ' +
+      'because the a priori Umax = sqrt(2gH) underestimates the real front speed. With c0 = 15 sqrt(2g·2a), every check passes (Ma 0.070, gap 0.073, Z changes by <= 0.036).',
+    conditions: {
+      a: 1, g: 9.81, Lx: '5a', N_primary: 33, N_study: [24, 33, 48, 64], hdx: 1.3, cfac: 10, alpha: 0.1, xsph: 0.5, cfl: 0.125,
+      T_end: 3.0, steps_primary: 9227, sensitivity: 'N = 33 with cfac = 15; scale run a = 0.05715 m (2.25 in), N = 24',
+      gap_metric: 'max |Z_sim(T - dT) - Z_ref(T)| over reference rows 0 < T <= 3; dT fitted on the Lethe copy (grid 0.005 in [0, 0.25]) and reused for a225',
+      check: 'verification/checks/wcsph@dam-front.check.js (default ~5 min: N = 24, 33, 48 + cfac 15 + scale run; --full adds N = 64, ~10.5 min)'
+    },
+    reference: ['dam-break-mm-front-lethe', 'dam-break-mm-front-a225', 'dam-break-ritter-front-bound'],
+    gaps: [
+      { quantity: 'max |Z - Z_ref| vs dam-break-mm-front-lethe, 0<T<=3, N=33, best shift dT=0.13', value: 0.0769, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'max |Z - Z_ref| vs dam-break-mm-front-a225 (T<=3, same dT=0.13), N=33', value: 0.0956, tolerance: 0.25, unit: 'Z = x/a', pass: true },
+      { quantity: 'best-fit time shift dT (Lethe), N=33 (N=24/48/64: 0.09/0.16/0.175)', value: 0.13, tolerance: 0.25, unit: 'T', pass: true },
+      { quantity: 'max |Z - Z_ref| (Lethe, best shift) at N=24 / 48 / 64', value: 0.0776, tolerance: 0.25, unit: 'Z (worst of 0.0748 / 0.0775 / 0.0776)', pass: true },
+      { quantity: 'Ritter bound violations Z > 1+2T (all steps, all runs); min margin 0.008 (N=64, at T=0)', value: 0, tolerance: 0, unit: 'count', pass: true },
+      { quantity: 'max Mach max|v|/c0, N=33 (N=24/48/64: 0.1037/0.1059/0.1069)', value: 0.1051, tolerance: 0.1, unit: 'Ma (method criterion Ma <= 0.1)', pass: false },
+      { quantity: 'max over time of particle-mean |rho/rho0 - 1|, N=33', value: 0.00229, tolerance: 0.01, unit: 'rel', pass: true },
+      { quantity: 'fluid mass drift / particle count change / particles outside tank', value: 0, tolerance: 1e-12, unit: 'rel / count', pass: true },
+      { quantity: 'largest rise of KE+PE+E_el(fluid) above its running minimum, N=33', value: 1.07e-4, tolerance: 1e-3, unit: 'E0 (reviewer criterion)', pass: true }
+    ],
+    checks: [
+      { name: 'mass conservation', status: 'pass', detail: 'equal-mass particles: particle count and total mass constant to 0 in all runs; no fluid particle left the tank (x<0, x>Lx, y<0).' },
+      { name: 'energy budget', status: 'pass',
+        detail: 'KE+PE falls monotonically after an initial release: it rises by 1.69e-3 E0 at T~0.08, which equals the released initial EOS storage (El0 = 32 J = 1.63e-3 E0). ' +
+          'KE+PE+E_el(fluid), with Tait internal energy, rises at most 1.07e-4 E0 (N=33) and 4e-5 E0 (N=64). Mechanical loss by T=3: 6.5% (N=33), 7.9/5.4/4.9% at N=24/48/64. ' +
+          'Wall-particle elastic storage cannot be observed through the API, so it is excluded.' },
+      { name: 'stability: no NaN / divergence, acoustic CFL', status: 'pass', detail: 'no NaN, diverged() false in all runs; acoustic CFL dt(c0+|v|)/h = 0.125 = stated C_cfl.' },
+      { name: 'stability: weak-compressibility (Mach) criterion', status: 'fail',
+        detail: 'Method states c0 >= 10 Umax / Ma <= 0.1. Measured max|v|/c0 = 0.1037/0.1051/0.1059/0.1069 at N = 24/33/48/64. It first exceeds 0.1 at T = 2.53-2.70, ' +
+          'in up to ~40 particles in the front tongue. Real front speed ~1.05 sqrt(2gH) > the a priori estimate sqrt(2gH) used for c0. With cfac = 15, Ma = 0.070 and all checks pass. ' +
+          'The front moves by <= 0.036 in Z, so the Z(T) claim does not depend on this violation.' },
+      { name: 'density error', status: 'pass',
+        detail: 'particle-mean |rho/rho0-1| <= 0.24% at all N (criterion 1%). Info: the per-particle max is 1.4-2.1%, from 1-8 particles at floor impact. It does not scale as 1/c0^2: 1.23% at cfac 15.' },
+      { name: 'quantitative (Z(T) vs Martin & Moyce)', status: 'pass',
+        detail: 'Lethe gap 0.077 (dT=0.13) at N=33; dT=0 gives 0.240 (N=33) and 0.299 (N=64). Lethe\'s own dT=0.175 gives 0.088 (N=33). a225 cross-copy 0.096 (own best dT=0.19: 0.021). ' +
+          'The gap is resolution-independent, but the best shift drifts up with N (0.09 to 0.175) as the front speeds up (Z(3) = 3.86/3.92/3.97/4.00), and is not yet converged.' },
+      { name: 'Ritter bound', status: 'pass', detail: 'Z_sim <= 1+2T at every step in every run. Tightest margin is at T=0 (particle-centre offset dx/2). Late-time dZ/dT ~1.4 < 2.' },
+      { name: 'scale invariance', status: 'pass', detail: 'info: a = 0.05715 m (2.25 in) gives Z(T) identical to a = 1 m at N = 24 (max diff 0). The nondimensional set-up is exact.' }
+    ],
+    missing: [
+      'martin1952 is verified:false (paywalled; original table not read). Z(T) comes from two open secondary copies, Lethe dam-break-2d.py and PySPH db_exp_data.py (digitised from Fig. 3). They agree to ~0.08.',
+      'ritter1892-pysph is verified:false (original not read; formula from the PySPH SWE example).',
+      'No Martin & Moyce residual column-height H/2a(T) reference is available, so the column_height probe was not verified.',
+      'The time-shift allowance (dT <= 0.25) and Lethe\'s +0.175 correction are empirical (gate-opening lag), not stated by Martin & Moyce. Without the shift, the gap is 0.19-0.30, which exceeds 0.25 at N >= 48.',
+      'Resolution study up to N = 64 (8192 fluid particles). The best-fit shift is still rising with N, and convergence of Z(T) is not demonstrated.',
+      'Energy-rise threshold (1e-3 E0) and the use of the particle-mean density error are reviewer choices. Wall-particle elastic energy is not observable.',
+      'becker2007 (c0 >= 10 Umax, eta = 0.01) is search-snippet only (verified:false).'
+    ],
+    reviewer: 'reviewer-wcsph-dam-front-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'flagged',
+      reason: 'Z(T) within tolerance (0.077 vs 0.25, dT=0.13; robust over N=24-64), Ritter bound, mass and energy pass. Method\'s own Ma <= 0.1 criterion exceeded (0.104-0.107 at all N) with default c0 = 10 sqrt(2gH). cfac=15 passes all checks.' } ]
+  });
+})(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
+
+</script>
+<script>/* verification/results/wcsph@tg-re100.js */
+/* Verification record: wcsph @ tg-re100. Reviewer: reviewer-wcsph-tg-re100-r1 (not the builder).
+ * Numbers from verification/checks/wcsph@tg-re100.check.js; report in verification/reports/wcsph@tg-re100.md. */
+(function (LAB) {
+  'use strict';
+  LAB.registerVerification({
+    id: 'wcsph@tg-re100',
+    method: 'wcsph', scene: 'taylor-green', experiment: 'tg-re100',
+    status: 'flagged',
+    claim: 'WCSPH (Tait EOS, cubic spline h = 1.3dx, Morris laminar viscosity, c0 = 10 U0, dx/5 initial perturbation) does NOT reproduce ' +
+      'the analytic Taylor-Green decay at Re = 100 over t in [0, 5]: KE(5)/KE0 is 34% / 22% / 17% below exp(-4 nu t) at N = 40 / 80 / 140 ' +
+      'particles per side (tolerance 1%), and the relative L2 velocity error at t = 5 is 0.28 / 0.15 / 0.10 (tolerance 0.02). ' +
+      'Errors fall with resolution at observed order about 0.5-0.9. The viscous operator itself gives the correct nu (nu_eff = 0.0101 on the ' +
+      'unperturbed lattice for t < 0.2); the extra dissipation comes from particle disorder and pressure noise, which also push max Mach above ' +
+      '0.1 and density variation above 1%. Mass and momentum are conserved to round-off and the runs are stable.',
+    conditions: {
+      Re: 100, nu: 0.01, t_end: 5, N: '40 / 80 / 140 particles per side (1600 / 6400 / 19600); finest N = 140 (UI maximum)',
+      hdx: 1.3, cfac: 10, cfl: 0.25, perturb: 0.2, steps: '1082 / 2149 / 3754',
+      metric: 'KE: |KE(t)/KE0 / exp(-4 nu t) - 1|; L2: probe l2_error (rel. L2 vs tgv-velocity at particle positions); evaluated at t = 5 and every 0.5',
+      diagnostics: 'early nu_eff (N = 80, t <= 0.2); near-inviscid Re = 1e6; unperturbed lattice N = 40, 80; c0 = 20 U0 at N = 80; t = 50 at N = 40',
+      check: 'verification/checks/wcsph@tg-re100.check.js (about 6.5 min)'
+    },
+    reference: ['tgv-kinetic-energy', 'tgv-velocity'],
+    gaps: [
+      { quantity: 'KE(5)/KE0 relative to exp(-4 nu t), N = 140', value: 0.1705, tolerance: 0.01, unit: 'relative', pass: false },
+      { quantity: 'KE(5)/KE0 relative to exp(-4 nu t), N = 80', value: 0.2229, tolerance: 0.01, unit: 'relative', pass: false },
+      { quantity: 'KE(5)/KE0 relative to exp(-4 nu t), N = 40 (default)', value: 0.3443, tolerance: 0.01, unit: 'relative', pass: false },
+      { quantity: 'relative L2 velocity error at t = 5, N = 140', value: 0.1023, tolerance: 0.02, unit: 'rel-l2', pass: false },
+      { quantity: 'relative L2 velocity error at t = 5, N = 80', value: 0.1468, tolerance: 0.02, unit: 'rel-l2', pass: false },
+      { quantity: 'relative L2 velocity error at t = 5, N = 40 (default)', value: 0.2826, tolerance: 0.02, unit: 'rel-l2', pass: false }
+    ],
+    checks: [
+      { name: 'mass conservation', status: 'pass', detail: 'equal-mass particles, count constant; total mass exact by construction' },
+      { name: 'momentum conservation', status: 'pass', detail: 'max drift of |sum m v| 2.6e-15 / 1.9e-15 / 4.0e-14 at N = 40 / 80 / 140 (pairwise-antisymmetric forces)' },
+      { name: 'energy (KE decay monotone)', status: 'pass', detail: 'no step-to-step KE increase in any run; but decay is too fast (see quantitative)' },
+      { name: 'stability (NaN / blow-up, CFL)', status: 'pass', detail: 'no NaN or diverged() in any run incl. t = 50; acoustic CFL max 0.2506 / 0.2501 / 0.2500 (criterion 0.25); dt <= 0.125 h^2/nu always (ratio <= 0.032)' },
+      { name: 'Mach criterion (c0 >= 10 Umax)', status: 'fail', detail: 'max |v|/c0 = 0.123 / 0.110 / 0.103 at N = 40 / 80 / 140: particle velocity noise exceeds U0. With c0 = 20 U0 (N = 80) max Mach 0.054.' },
+      { name: 'density variation <= 1% (becker2007 eta)', status: 'fail', detail: 'max |rho/rho0 - 1| = 0.066 / 0.044 / 0.034 at N = 40 / 80 / 140; 0.019 with c0 = 20 U0 at N = 80' },
+      { name: 'quantitative (KE decay, L2 velocity)', status: 'fail', detail: 'all 6 gaps exceed tolerance by 10-34x (KE) and 5-14x (L2). Observed order N40->80->140: KE 0.63, 0.48; L2 0.95, 0.65. ' +
+          'Extrapolating at order ~0.5 to reach 1% KE would need N of order 10^4 per side.' },
+      { name: 'diagnostic: viscous operator', status: 'pass', detail: 'unperturbed lattice N = 80: nu_eff = -ln(KE/KE0)/(4t) = 0.01013 / 0.01018 / 0.00991 at t = 0.05 / 0.10 / 0.20 (exact 0.01), L2 <= 0.003. ' +
+          'Perturbed N = 80: nu_eff rises 0.0102 -> 0.0132 by t = 0.2 as disorder grows.' },
+      { name: 'diagnostic: numerical dissipation', status: 'n/a', detail: 'near-inviscid Re = 1e6, N = 80: KE(5)/KE0 = 0.936 (exact 1.000), L2 = 0.41. Unperturbed lattice: KE gap 0.665 (N = 40), 0.547 (N = 80), worse than perturbed, ' +
+          'as the method notes describe. c0 = 20 U0 at N = 80: KE gap 0.276 (worse than 0.223 at c0 = 10). t = 50 at N = 40: KE(50)/KE0 = 0.0055 vs 0.135 exact.' }
+    ],
+    missing: [
+      'No published numeric SPH Taylor-Green error values are available (research/ptc.md): adami2013 is paywalled (verified:false), and ramachandran2019edac / negi2022convergence give only qualitative statements ' +
+        '(standard WCSPH least accurate; WCSPH/TVF do not converge with resolution); their figures are not in the open repos. The tolerances are therefore the analytic-solution tolerances of tgv-velocity / tgv-kinetic-energy, not SPH-specific ones.',
+      'Analytic reference source taylor1937 and secondary lehmann2022 are verified:false (original not read; search snippet only). The formula was independently verified by substitution (research/ins.md), so this does not affect the verdict.',
+      'Reference tolerance for KE suggests checking at t = 1/(2 nu k^2) = 50; the experiment is defined on t in [0, 5], so t = 5 was used as the primary point (less demanding). At t = 50 (N = 40) the KE gap is 0.96.',
+      'The Morris laminar viscosity operator has no registered source (builder knowledge, unverified); the reviewer diagnostic shows it yields nu_eff = 0.0101 on an ordered lattice.',
+      'Kernel and setup differ from the published SPH TG runs (cubic spline h = 1.3dx vs quintic spline h = dx; 2pi box vs unit box); no transport-velocity / shifting correction, which the cited literature uses to obtain accurate TG results.',
+      'Resolution limited to N = 140 (UI maximum, 19600 particles, 179 s); larger N not run within the time budget.'
+    ],
+    reviewer: 'reviewer-wcsph-tg-re100-r1', round: 1, date: '2026-10-13',
+    history: [ { round: 1, status: 'flagged',
+      reason: 'KE(5) 17-34% below exact (tol 1%) and rel. L2 0.10-0.28 (tol 0.02) at N = 140/80/40; slow sub-first-order convergence. Mach > 0.1 and density variation > 1% from particle noise. ' +
+        'Viscous operator verified correct (nu_eff = 0.0101 on lattice); excess dissipation is disorder/pressure noise inherent to standard WCSPH, no implementation defect found. Mass/momentum to round-off; stable.' } ]
   });
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
 

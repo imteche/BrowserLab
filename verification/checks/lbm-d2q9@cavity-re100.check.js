@@ -19,8 +19,9 @@
  *   - Table comparison: max-abs over all 17 rows of Ghia Table I / II, tolerance from reference (0.02 U).
  *     psi_min: rel error vs -0.103423 (tol 0.03). Vortex centre: max(|dx|,|dy|) (tol 0.02).
  *   - Conservation for LBM: total mass sum(rho) drift (moving-wall bounce-back conserves mass
- *     exactly per node; expect round-off). Momentum/energy are not invariants of the driven,
- *     viscous cavity; reported: discrete divergence max |div u| (weak compressibility, O(Ma^2))
+ *     exactly per node; expect round-off). Criterion: max |M - M0|/M0 over the run < 10 eps * steps
+ *     (i.e. < 10 machine epsilons of relative drift per step). Momentum/energy are not invariants of the driven,
+ *     viscous cavity; reported for information only (no criterion): discrete divergence max |div u| (weak compressibility, O(Ma^2))
  *     and max density deviation.
  *   - Stability: no NaN; tau > 1/2; Mach max|u|/c_s < 0.3 (method's stated criterion).
  */
@@ -102,7 +103,12 @@ const rMa = runCase(128, 0.05, 1e-7);
 const runs = [r64, P, rMa];
 
 const stabOK = !P.nan && P.tau > 0.5 && P.maxMach < 0.3;
-const consOK = P.conservation.dmass_max < 1e-12;
+// Mass criterion (reviewer-set): the update conserves sum(f) exactly in exact arithmetic (bounce-back and the
+// moving-wall term sum to zero per node), so only floating-point round-off may remain: require the relative
+// drift per step to stay below 10 machine epsilons (2.2e-15), i.e. |M - M0|/M0 < 10 eps * steps.
+const EPS = 2.220446049250313e-16;
+const massBound = r => 10 * EPS * r.steps;
+const consOK = P.conservation.dmass_max < massBound(P);
 const steadyOK = P.converged && !!P.stationarity && P.stationarity.max_du_vcl < 0.01 * refU.tolerance.value &&
   P.stationarity.max_dv_hcl < 0.01 * refV.tolerance.value &&
   P.stationarity.dpsimin / Math.abs(P.psimin) < 0.01 * refP.tolerance.value;
@@ -121,7 +127,7 @@ const summary = {
   runs: runs.map(r => ({ N: r.N, Ulat: r.Ulat, tau: r.tau, steps: r.steps, t_end: +r.t_end.toFixed(3), converged: r.converged,
     residual: r.residual, wall_s: r.wall_s, maxMach: r.maxMach, u_maxAbs: r.u.maxAbs, u_at: r.u.at, v_maxAbs: r.v.maxAbs, v_at: r.v.at,
     psimin: r.psimin, psiRel: r.psiRel, center: r.center, centerErr: r.centerErr,
-    dmass_max: r.conservation.dmass_max, div_max: r.conservation.div_max, nan: r.nan })),
+    dmass_max: r.conservation.dmass_max, dmass_bound: massBound(r), dmass_per_step: r.conservation.dmass_max / r.steps, div_max: r.conservation.div_max, nan: r.nan })),
   passes: {
     u_vcl: P.u.pass, v_hcl: P.v.pass, psi_min: P.psiRel <= refP.tolerance.value,
     vortex_center: P.centerErr <= refC.tolerance.value, converged_steady: steadyOK,

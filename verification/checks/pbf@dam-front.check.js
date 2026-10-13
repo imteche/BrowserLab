@@ -9,7 +9,8 @@
  *   0 < T <= 3 (dam-break-mm-front-lethe), tolerance 0.25, allowing ONE time shift dT in [0, 0.25]
  *   (simulated curve delayed: Z_ref(T) is compared with Z_sim(T - dT)); dT is reported. The unshifted
  *   error is also reported. Secondary: PySPH a = 2.25 in digitised series (dam-break-mm-front-a225)
- *   up to Z <= 0.9 L_tank/a, same tolerance/shift rule, in an extended tank (tankL = 12).
+ *   up to Z <= 0.9 L_tank/a in an extended tank (tankL = 12); scored within the suggested window 0 < T <= 3,
+ *   the T > 3 part (to T = 6.8) is reported for information only (outside the reference's suggested check).
  *   Ritter bound (dam-break-ritter-front-bound): Z_sim(T) <= 1 + 2T at every step.
  *   a = 0.05715 m (2.25 in), g = 9.81 (method defaults) match the Martin & Moyce a = 2.25 in case.
  * Conservation: mass (exact, n*m); total energy E = KE + PE must not exceed E0 (physical dam break only
@@ -114,7 +115,11 @@ const extC = compare(ext, a225);
 const fitSlope = (r, T1, T2) => { let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
   for (let i = 0; i < r.Ts.length; i++) if (r.Ts[i] >= T1 && r.Ts[i] <= T2) { n++; sx += r.Ts[i]; sy += r.Zs[i]; sxx += r.Ts[i] ** 2; sxy += r.Ts[i] * r.Zs[i]; }
   return (n * sxy - sx * sy) / (n * sxx - sx * sx); };
-const extended = Object.assign(strip(ext), { a225: extC, lateSlope_5p1_9p2: fitSlope(ext, 5.1, 9.2) });
+// window limited to T <= 6.85 so the front stays clear of the 12a end wall (Z < 10.8)
+const dataSlope = (rows, T1, T2) => { const r = { Ts: rows.map(q => q[0]), Zs: rows.map(q => q[1]) }; return fitSlope(r, T1, T2); };
+const extC3 = compare(ext, a225.filter(r => r[0] <= 3));
+const extended = Object.assign(strip(ext), { a225_all: extC, a225_T_le_3: extC3,
+  lateSlope_sim_5p1_6p85: fitSlope(ext, 5.1, 6.85), lateSlope_data_5p1_6p85: dataSlope(refA.rows, 5.1, 6.85) });
 
 /* summary / passes (primary = finest nx = 80) */
 const P = res.nx80;
@@ -122,10 +127,12 @@ const all = [res.nx20, res.nx40, res.nx80, ext];
 const passes = {
   'lethe max|dZ| (best dT) <= 0.25 (nx80)': P.lethe.best.maxAbs <= refL.tolerance.value,
   'lethe max|dZ| (best dT) <= 0.25 (nx40)': res.nx40.lethe.best.maxAbs <= refL.tolerance.value,
-  'a225 max|dZ| (best dT) <= 0.25 (nx40, tank 12a)': extC.best.maxAbs <= refA.tolerance.value,
+  'a225 max|dZ| (best dT) <= 0.25, 0 < T <= 3 (nx40, tank 12a)': extC3.best.maxAbs <= refA.tolerance.value,
+  'INFO (outside suggested window) a225 max|dZ| (best dT) <= 0.25, T up to 6.8': extC.best.maxAbs <= refA.tolerance.value,
   'Ritter bound Z <= 1 + 2T (all runs)': all.every(r => r.ritter.maxExcess <= 0),
   'mass conserved': all.every(r => r.massDriftRel < 1e-12),
-  'energy not increasing (max gain <= 1e-3 E0)': all.every(r => r.energy.maxRelGain <= 1e-3),
+  'energy not increasing (max gain <= 1e-3 E0), default iters': all.every(r => r.energy.maxRelGain <= 1e-3),
+  'INFO energy not increasing, iteration study': Object.values(itr).every(r => !r.energy || r.energy.maxRelGain <= 1e-3),
   'stability (no NaN, max|v|dt <= h/2)': all.every(r => !r.nan && r.maxCfl <= r.cflLimit) &&
     Object.values(itr).every(r => r.nan === undefined || (!r.nan && r.maxCfl <= 1))
 };
