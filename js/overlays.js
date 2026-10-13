@@ -49,10 +49,10 @@
     });
   }
 
-  /* 2D dam break: Martin & Moyce data (two column widths), Koshizuka & Oka, Ritter bound */
-  ov('dam-break-mm-front-a225', { plot: 'front', x: 'T', y: 'Z' });
-  ov('dam-break-mm-front-a1125', { plot: 'front', x: 'T', y: 'Z' });
-  ov('dam-break-ko-front', { plot: 'front', x: 'T', y: 'Z' });
+  /* 2D dam break: Martin & Moyce data (two open copies), Ritter bound */
+  ov('dam-break-mm-front-lethe', { plot: 'front', x: 'T', y: 'Z' }, 'Martin & Moyce 1952 (Lethe copy)');
+  ov('dam-break-mm-front-a225', { plot: 'front', x: 'T', y: 'Z' }, 'Martin & Moyce a=2.25in (PySPH copy)');
+  /* Koshizuka & Oka curve is diagnostic only (provenance unclear, see research/ptc.md): not overlaid */
   var rit = LAB.references['dam-break-ritter-front-bound'];
   if (rit) ov('dam-break-ritter-front-bound', { plot: 'front', sample: 't', eval: function (T) { return rit.fn(T, null, {}); } }, 'Ritter bound 1 + 2T');
 })(typeof window !== 'undefined' ? window.LAB : globalThis.LAB);
